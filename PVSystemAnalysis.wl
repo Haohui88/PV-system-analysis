@@ -4,7 +4,7 @@
 (*PV System Analysis*)
 
 
-(* ::Chapter::Closed:: *)
+(* ::Chapter:: *)
 (*Initialization*)
 
 
@@ -23,6 +23,10 @@
 *)
 
 BeginPackage["PVSystemAnalysis`"];
+
+
+(* ::Section:: *)
+(*General functions*)
 
 
 If[ Not@ValueQ[ReduceDateObject::usage],
@@ -79,6 +83,21 @@ PeriodStats::usage = "PeriodStats[data,start_time,end_time] calculates the stats
 
 Options[PeriodStats]={TimeStep->Quantity[1,"Days"],function->fnAvg,windowAlignment->Left,windowPadding->None,weightPosition->Null};
 
+
+
+(* ::Section:: *)
+(*Plotting related*)
+
+
+If[ Not@ValueQ[TwoAxisPlot::usage],
+TwoAxisPlot::usage = "Two axis plotting: TwoAxisPlot[{f,g},{x,x1,x2}]."]
+
+If[ Not@ValueQ[TwoAxisListPlot::usage],
+TwoAxisListPlot::usage = "Two axis plotting: TwoAxisListPlot[{f,g}]."]
+
+If[ Not@ValueQ[TwoAxisListLinePlot::usage],
+TwoAxisListLinePlot::usage = "Two axis plotting: TwoAxisListLinePlot[{f,g}]."]
+
 If[ Not@ValueQ[EnhancedShow::usage],
 EnhancedShow::usage = "Enhanced plots with some reformatting."]
 
@@ -89,6 +108,11 @@ If[ Not@ValueQ[AddTrendline::usage],
 AddTrendline::usage = "Add a line of best linear fit to a plot."]
 
 Options[AddTrendline]={"ShowEquation"->True,"PlaceEquation"->Scaled[{0.6,0.8}]};
+
+
+(* ::Section::Closed:: *)
+(*Solar related*)
+
 
 If[ Not@ValueQ[DayLength::usage],
 DayLength::usage = "DayLength[Julian day,latitude] calculates day length in number of hours."]
@@ -607,14 +631,42 @@ Return[output]
 
 
 (* ::Section::Closed:: *)
+(*Plotting*)
+
+
+(* ::Input:: *)
+(*TwoAxisPlot[{f_,g_},{x_,x1_,x2_}]:=Module[{fgraph,ggraph,frange,grange,fticks,gticks},{fgraph,ggraph}=MapIndexed[Plot[#,{x,x1,x2},Axes->True,PlotStyle->ColorData[1][#2[[1]]]]&,{f,g}];{frange,grange}=(PlotRange/.AbsoluteOptions[#,PlotRange])[[2]]&/@{fgraph,ggraph};fticks=N@FindDivisions[frange,5];*)
+(*gticks=Quiet@Transpose@{fticks,ToString[NumberForm[#,2],StandardForm]&/@Rescale[fticks,frange,grange]};*)
+(*Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];*)
+(**)
+
+
+(* ::Input:: *)
+(*TwoAxisListPlot[{f_,g_}]:=Module[{fgraph,ggraph,frange,grange,fticks,gticks},{fgraph,ggraph}=MapIndexed[ListPlot[#,Axes->True,PlotStyle->ColorData[1][#2[[1]]]]&,{f,g}];{frange,grange}=Last[PlotRange/.AbsoluteOptions[#,PlotRange]]&/@{fgraph,ggraph};*)
+(*fticks=Last[Ticks/.AbsoluteOptions[fgraph,Ticks]]/._RGBColor|_GrayLevel|_Hue:>ColorData[1][1];*)
+(*gticks=(MapAt[Function[r,Rescale[r,grange,frange]],#,{1}]&/@Last[Ticks/.AbsoluteOptions[ggraph,Ticks]])/._RGBColor|_GrayLevel|_Hue->ColorData[1][2];*)
+(*Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];*)
+(**)
+(*(*variant*)*)
+(*(*TwoAxisListPlot[{list1_,list2_},opts:OptionsPattern[]]:=Module[{plot1,plot2,ranges},{plot1,plot2}=ListLinePlot/@{list1,list2};*)
+(*ranges=Last@Charting`get2DPlotRange@#&/@{plot1,plot2};*)
+(*ListPlot[{list1,Rescale[list2,Last@ranges,First@ranges]},Frame\[Rule]True,FrameTicks\[Rule]{{Automatic,Charting`FindTicks[First@ranges,Last@ranges]},{Automatic,Automatic}},FrameStyle\[Rule]{{Automatic,ColorData[97][2]},{Automatic,Automatic}},FilterRules[{opts},Options[ListPlot]]]]*)*)
+(**)
+(*TwoAxisListLinePlot[{f_,g_}]:=Module[{fgraph,ggraph,frange,grange,fticks,gticks},{fgraph,ggraph}=MapIndexed[ListLinePlot[#,Axes->True,PlotStyle->ColorData[1][#2[[1]]]]&,{f,g}];{frange,grange}=Last[PlotRange/.AbsoluteOptions[#,PlotRange]]&/@{fgraph,ggraph};*)
+(*fticks=Last[Ticks/.AbsoluteOptions[fgraph,Ticks]]/._RGBColor|_GrayLevel|_Hue:>ColorData[1][1];*)
+(*gticks=(MapAt[Function[r,Rescale[r,grange,frange]],#,{1}]&/@Last[Ticks/.AbsoluteOptions[ggraph,Ticks]])/._RGBColor|_GrayLevel|_Hue->ColorData[1][2];*)
+(*Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];*)
+
+
+(* ::Section::Closed:: *)
 (*Speedy post-processing of plots*)
 
 
-EnhancedShow[plot_,options_List:{}]:=Show[plot,
 Frame->True,
 Axes->False,
 LabelStyle->{FontFamily->"Helvetica",FontSize->22,FontWeight->Bold,FontColor->Black},
 ImageSize->600,ImageMargins->15,options];
+ImageSize->600,ImageMargins->15,opt];
 
 
 ExtractPlotData[plot_]:=Module[{points},
