@@ -662,10 +662,10 @@ Return[output]
 (*Speedy post-processing of plots*)
 
 
+EnhancedShow[plot_,opt:OptionsPattern[]]:=Show[plot,
 Frame->True,
 Axes->False,
 LabelStyle->{FontFamily->"Helvetica",FontSize->22,FontWeight->Bold,FontColor->Black},
-ImageSize->600,ImageMargins->15,options];
 ImageSize->600,ImageMargins->15,opt];
 
 
