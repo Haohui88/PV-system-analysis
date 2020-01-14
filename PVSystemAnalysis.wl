@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*General functions*)
 
 
@@ -85,7 +85,7 @@ Options[PeriodStats]={TimeStep->Quantity[1,"Days"],function->fnAvg,windowAlignme
 
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Plotting related*)
 
 
@@ -116,6 +116,15 @@ Options[AddTrendline]={"ShowEquation"->True,"PlaceEquation"->Scaled[{0.6,0.8}]};
 
 If[ Not@ValueQ[DayLength::usage],
 DayLength::usage = "DayLength[Julian day,latitude] calculates day length in number of hours."]
+
+If[ Not@ValueQ[ArrayPitch::usage],
+ArrayPitch::usage = "ArrayPitch[tilt, width, \[Theta]limit] calculates the required pitch given array tilt, collector width, and desired shading limit angle."]
+
+If[ Not@ValueQ[ShadeLimitAngle::usage],
+ShadeLimitAngle::usage = "ShadeLimitAngle[tilt, width, pitch] calculates the shading limit angle."]
+
+If[ Not@ValueQ[GCR::usage],
+GCR::usage = "GCR[tilt, \[Theta]limit] estimates the ground coverage ratio for a desired tilt and shading limit angle."]
 
 If[ Not@ValueQ[PR::usage],
 PR::usage = "PR[power,ratedPower,irradiance] calculates the performance ratio."]
@@ -175,7 +184,7 @@ c=3*10^8;
 h=6.626*10^-34;
 
 
-(* ::Chapter:: *)
+(* ::Chapter::Closed:: *)
 (*General functions*)
 
 
@@ -687,11 +696,11 @@ Show[plot,Plot[fit,{x,Min[data[[All,1]]],Max[data[[All,1]]]},PlotStyle->Red],Epi
 ];
 
 
-(* ::Chapter::Closed:: *)
+(* ::Chapter:: *)
 (*Solar geometry and meteorological*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Daytime duration*)
 
 
@@ -706,6 +715,23 @@ dayLength=24-24/Pi*ArcCos[(Sin[0.8333*Pi/180]+Sin[lat*Pi/180]*Sin[\[Phi]])/(Cos[
 (*there is no real solution when it's polar day or polar night*)
 Return[Re@dayLength];
 ];
+
+
+(* ::Subsection:: *)
+(*Inter-row pitch & profile angle (shading limit angle) & GCR*)
+
+
+(* ::Text:: *)
+(*tilt and \[Theta]limit should be in degrees. *)
+
+
+ArrayPitch[tilt_,width_,\[Theta]limit_]:=width*Cos[tilt \[Degree]]+width*Sin[tilt \[Degree]]/Tan[\[Theta]limit \[Degree]];
+
+
+ShadeLimitAngle[tilt_,width_,pitch_]:=N[ArcTan[width*Sin[tilt \[Degree]]/(pitch-width*Cos[tilt \[Degree]])]/Degree];
+
+
+GCR[tilt_,\[Theta]limit_]:=1/(Cos[tilt \[Degree]]+Sin[tilt \[Degree]]/Tan[\[Theta]limit \[Degree]]);
 
 
 (* ::Chapter::Closed:: *)
