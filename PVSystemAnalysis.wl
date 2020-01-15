@@ -141,7 +141,7 @@ CablingLoss::usage = "CablingLoss[current,cableLength,crossSection] calculates t
 Options[CablingLoss]={"NumLineCoeff"->1,"LengthCableFactor"->2,"Resistivity"->0.023};
 
 If[ Not@ValueQ[ModuleTemperature::usage],
-ModuleTemperature::usage = "ModuleTemperature[airT,irradiance,Tc,\[Eta]] estimates the PV module temperature."]
+ModuleTemperature::usage = "ModuleTemperature[airT, irradiance, Tc, \[Eta]stc, U-value (default 29)] estimates the PV module temperature based on simple heat balance model (Faiman 2008)."]
 
 If[ Not@ValueQ[SimpleFaultDetect::usage],
 SimpleFaultDetect::usage = "SimpleFaultDetect[listGVIP,listPR,listIratio,listVratio] detects and highlights obvious faults."]
@@ -734,7 +734,7 @@ ShadeLimitAngle[tilt_,width_,pitch_]:=N[ArcTan[width*Sin[tilt \[Degree]]/(pitch-
 GCR[tilt_,\[Theta]limit_]:=1/(Cos[tilt \[Degree]]+Sin[tilt \[Degree]]/Tan[\[Theta]limit \[Degree]]);
 
 
-(* ::Chapter::Closed:: *)
+(* ::Chapter:: *)
 (*PV system related calculations*)
 
 
@@ -811,14 +811,14 @@ Return[loss]
 ];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Thermal models*)
 
 
-ModuleTemperature[airT_,irrLv_,tCoeff_,\[Eta]0_]:=Module[{\[Eta]c,Tmod,t,\[Tau],\[Alpha],uL},
+ModuleTemperature[airT_,irrLv_,tCoeff_,\[Eta]0_,uL_:29]:=Module[{\[Eta]c,Tmod,t,\[Tau],\[Alpha]},
 \[Tau]=0.95; (* transmittance of glazing *)
 \[Alpha]=0.8; (* fraction of solar spectrum absorbed *)
-uL=25; (* heat loss coefficient, adjustable, depends on module thermal environment *)
+
 \[Eta]c[T_]:=\[Eta]0-tCoeff*(T-airT)*\[Eta]0;
 Tmod=t/.(FindRoot[t==airT+irrLv*((\[Tau]*\[Alpha])/uL)*(1-\[Eta]c[t]/(\[Tau]*\[Alpha])),{t,airT+10}]);
 Return[Tmod]
@@ -1201,7 +1201,7 @@ Return[acPlots~Join~dcPlots]
 ];
 
 
-(* ::Chapter::Closed:: *)
+(* ::Chapter:: *)
 (*Spectrum related calculations*)
 
 
@@ -1228,7 +1228,7 @@ SpecAverage[spec_]:=Module[{spectrum,wavelength,integrate,intensity,intensitySum
 wavelength=First[spec];
 spectrum=Rest[spec];
 
-integrate=NIntegrate[Interpolation[{wavelength,#}\[Transpose],InterpolationOrder->1][x],{x,First[wavelength],Last[wavelength]}]&;
+integrate=NIntegrate[Interpolation[{wavelength,#}\[Transpose],InterpolationOrder->1][x],{x,First[wavelength],Last[wavelength]},Method->"Trapezoidal",MaxRecursion->20]&;
 intensity=integrate/@spectrum;
 intensitySum=Total[intensity];
 avgSpec=Thread[Times[spectrum,intensity],1]/intensitySum//Total;
@@ -1245,7 +1245,7 @@ APECalc[spec_]:=Module[{spectrum,wavelength,integrate,intensity,flux,APE},
 wavelength=First[spec];
 spectrum=Rest[spec];
 
-integrate=NIntegrate[Interpolation[{wavelength,#}\[Transpose],InterpolationOrder->1][x],{x,First[wavelength],Last[wavelength]}]&;
+integrate=NIntegrate[Interpolation[{wavelength,#}\[Transpose],InterpolationOrder->1][x],{x,First[wavelength],Last[wavelength]},Method->"Trapezoidal",MaxRecursion->20]&;
 intensity=integrate/@spectrum;
 flux=#*wavelength/(h*c)&/@spectrum;
 flux=integrate/@flux;
@@ -1263,7 +1263,7 @@ Photocurrent[spec_]:=Module[{spectrum,wavelength,integrate,intensity,flux,APE,Js
 wavelength=First[spec];
 spectrum=Rest[spec];
 
-integrate=NIntegrate[Interpolation[{wavelength,#}\[Transpose],InterpolationOrder->1][x],{x,First[wavelength],Last[wavelength]}]&;
+integrate=NIntegrate[Interpolation[{wavelength,#}\[Transpose],InterpolationOrder->1][x],{x,First[wavelength],Last[wavelength]},Method->"Trapezoidal",MaxRecursion->20]&;
 flux=#*wavelength/(h*c)&/@spectrum;
 flux=integrate/@flux;
 Jsc=flux*q;
@@ -1280,7 +1280,7 @@ Photocurrent[spec_,{wMin_,wMax_}]:=Module[{spectrum,wavelength,integrate,intensi
 wavelength=First[spec];
 spectrum=Rest[spec];
 
-integrate=NIntegrate[Interpolation[{wavelength,#}\[Transpose],InterpolationOrder->1][x],{x,Max[First[wavelength],wMin],Min[Last[wavelength],wMax]}]&;
+integrate=NIntegrate[Interpolation[{wavelength,#}\[Transpose],InterpolationOrder->1][x],{x,Max[First[wavelength],wMin],Min[Last[wavelength],wMax]},Method->"Trapezoidal",MaxRecursion->20]&;
 flux=#*wavelength/(h*c)&/@spectrum;
 flux=integrate/@flux;
 Jsc=flux*q;
