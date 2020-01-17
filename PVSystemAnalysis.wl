@@ -25,17 +25,20 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*General functions*)
 
 
 If[ Not@ValueQ[ReduceDateObject::usage],
 ReduceDateObject::usage = "Quick conversion of DateObject back to string."]
 
-Options[ReduceDateObject]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},"DatePosition"->1};
+Options[ReduceDateObject]={"DateFormat"->Automatic};
 
 If[ Not@ValueQ[ToDataset::usage],
-ToDataset::usage = "Quick conversion of a table to dataset."]
+ToDataset::usage = "Quick conversion of a table to a dataset."]
+
+If[ Not@ValueQ[FromDataset::usage],
+FromDataset::usage = "Quick conversion of a dataset to a table."]
 
 If[ Not@ValueQ[MultiImport::usage],
 MultiImport::usage = "Import multiple files at the same time."]
@@ -43,7 +46,7 @@ MultiImport::usage = "Import multiple files at the same time."]
 If[ Not@ValueQ[MergeData::usage],
 MergeData::usage = "This function merges multiple datasets with a common key (e.g. timestamp). "]
 
-Options[MergeData]={KeyPosition->1,Header->True,JoinMethod->"Outer",keyCollisionFunction->Right};
+Options[MergeData]={KeyPosition->1,Header->False,JoinMethod->"Outer",keyCollisionFunction->Right};
 
 If[ Not@ValueQ[RunningAverage::usage],
 RunningAverage::usage = "This function select non-missing and daytime data, obtain averaged values for every x minute interval."]
@@ -109,6 +112,9 @@ AddTrendline::usage = "Add a line of best linear fit to a plot."]
 
 Options[AddTrendline]={"ShowEquation"->True,"PlaceEquation"->Scaled[{0.6,0.8}]};
 
+If[ Not@ValueQ[FigureAlbum::usage],
+FigureAlbum::usage = "Inspect a set of plots."]
+
 
 (* ::Section::Closed:: *)
 (*Solar related*)
@@ -147,7 +153,8 @@ If[ Not@ValueQ[SimpleFaultDetect::usage],
 SimpleFaultDetect::usage = "SimpleFaultDetect[listGVIP,listPR,listIratio,listVratio] detects and highlights obvious faults."]
 
 If[ Not@ValueQ[TimeSeriesInspection::usage],
-TimeSeriesInspection::usage = "High level time series inspection and plots of system performance KPIs."]
+TimeSeriesInspection::usage = "High level time series inspection and plots of system performance KPIs. 
+{outputData,plots}=TimeSeriesInspection[data], columns by default is {Timestamp,G,Vdc,Idc,Pdc,Vac,Iac,Pac,cum_meter_reading, Tmod}. "]
 
 Options[TimeSeriesInspection]={ColumnNames->{"Timestamp","G","Vdc","Idc","Pdc","Vac","Iac","Pac"},NominalPower->Null,Tc->Null,InputResolution->1,ReportPeriod->"Day"};
 
@@ -184,29 +191,33 @@ c=3*10^8;
 h=6.626*10^-34;
 
 
-(* ::Chapter::Closed:: *)
+(* ::Chapter:: *)
 (*General functions*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Reduce DateObject*)
 
 
-ReduceDateObject[dataset_,opt:OptionsPattern[]]:=Module[{reducedOutput,format,position},
+ReduceDateObject[dataset_,position_:1,opt:OptionsPattern[]]:=Module[{reducedOutput,format},
 format=OptionValue["DateFormat"];
-position=OptionValue["DatePosition"];
 
 If[format==="DateList",
-reducedOutput=Parallelize@Map[MapAt[DateList,#,position]&,dataset];
+	reducedOutput=Parallelize@Map[MapAt[DateList,#,position]&,dataset];
 ,
-reducedOutput=Parallelize@Map[MapAt[DateString[#,format]&,#,position]&,dataset];];
+	If[format===Automatic,
+		reducedOutput=Parallelize@Map[MapAt[DateString,#,position]&,dataset];
+		,
+		reducedOutput=Parallelize@Map[MapAt[DateString[#,format]&,#,position]&,dataset];
+	];
+];
 
 Return[reducedOutput]
 ];
 
 
 (* ::Subsection::Closed:: *)
-(*Convert to dataset*)
+(*Convert to and from dataset*)
 
 
 (* ::Text:: *)
@@ -229,6 +240,13 @@ dataset=AssociationThread[titles->#]&/@table//Dataset;
 
 Return[dataset]
 ];
+
+
+(* ::Text:: *)
+(*Convert back to a table with column names. *)
+
+
+FromDataset[dataset_]:=Prepend[Normal@Values@dataset,Normal@Keys@First@dataset];
 
 
 (* ::Section:: *)
@@ -260,35 +278,42 @@ Return[output]
 
 (* ::Text:: *)
 (*The basic method is the convert these datasets into associations and use Mathematica built-in function JoinAcross to perform data merging. *)
-(*The option KeyPosition indicates the column at which this common key resides. The option JoinMethod specifies the joining method which will be used in function JoinAcross. *)
+(*The option KeyPosition indicates the column at which this common key resides (can be a number of column name). *)
+(*The option JoinMethod specifies the joining method which will be used in function JoinAcross. *)
 (*The input "data" needs to be a table of datasets: {dataset1, dataset2, ...}. *)
-(*It is not advisable to use DateObject as the timestamp as sometimes they are not compared correctly. *)
+(*Format of individual datasets must be tables, or flat (not hierarchical) and (only) column indexed Dataset objects. *)
+(*It is not advisable to use DateObject as the timestamp as its exact form may not be the same while appearing to be the same timestamp. *)
 
 
 MergeData[data_,opt:OptionsPattern[]]:=Module[{keyIndex,toAssoc,associationTable,joinedSet},
 
-If[OptionValue@Header,
 keyIndex=OptionValue[KeyPosition];
-If[NumericQ[keyIndex],keyIndex=data[[1,1]][[keyIndex]]]; (*when there is Header line, assign keyIndex to be the name of the variable*)
-toAssoc[table_]:=With[{index=First@table},AssociationThread[index->#]&/@Rest[table]];
-associationTable=toAssoc/@data;
-joinedSet=Fold[JoinAcross[#1,#2,keyIndex,OptionValue[JoinMethod],KeyCollisionFunction->OptionValue[keyCollisionFunction]]&,associationTable];
-,
-(*when there is no Header line*)
-keyIndex=OptionValue[KeyPosition];
-(*assign a unique index (as string) to each column in the format of table#-column#, except the column# of the KeyPosition, which will remain as it is*)
-toAssoc[table_,tableNumber_]:=With[
-{index=If[Length@Dimensions@table>1,
-ReplacePart[ToString@tableNumber<>"-"<>ToString[#]&/@Range@Dimensions[table][[2]],keyIndex->ToString@keyIndex]
-, (*else*)
-ToString@keyIndex]},
-AssociationThread[index->#]&/@table];
-(*convert all datasets into associations*)
-associationTable=Table[toAssoc[data[[i]],i],{i,Length@data}];
 
-(*merge datasets from left to right, i.e. ...JoinAcross[JoinAcross[dataset1,dataset2],dataset3]...*)
-(*when using "Left" or "Right" as joining method, arrange datasets so that the leftmost or rightmost dataset has the master keys*)
-joinedSet=Fold[JoinAcross[#1,#2,ToString@keyIndex,OptionValue[JoinMethod],KeyCollisionFunction->OptionValue[keyCollisionFunction]]&,associationTable];
+If[MatchQ[data,{__Dataset}], (*if input data is Dataset objects, reduce to associations*)
+		associationTable=Normal/@data;
+		If[NumericQ[keyIndex],keyIndex=Keys[First@data[[1]]][[keyIndex]]]; (*when there is Header line, assign keyIndex to be the name of the variable*)
+		joinedSet=Fold[JoinAcross[#1,#2,keyIndex,OptionValue[JoinMethod],KeyCollisionFunction->OptionValue[keyCollisionFunction]]&,associationTable];
+	,
+	If[OptionValue@Header,
+		If[NumericQ[keyIndex],keyIndex=data[[1,1]][[keyIndex]]]; 
+		toAssoc[table_]:=With[{index=First@table},AssociationThread[index->#]&/@Rest[table]];
+		associationTable=toAssoc/@data;
+		joinedSet=Fold[JoinAcross[#1,#2,keyIndex,OptionValue[JoinMethod],KeyCollisionFunction->OptionValue[keyCollisionFunction]]&,associationTable];
+	, (*else, when there is no Header line*)
+		(*assign a unique index (as string) to each column in the format of table#-column#, except the column# of the KeyPosition, which will remain as it is*)
+		toAssoc[table_,tableNumber_]:=With[
+		{index=If[Length@Dimensions@table>1,
+			ReplacePart[ToString@tableNumber<>"-"<>ToString[#]&/@Range@Dimensions[table][[2]],keyIndex->ToString@keyIndex]
+			, (*else*)
+			ToString@keyIndex]},
+		AssociationThread[index->#]&/@table];
+		(*convert all datasets into associations*)
+		associationTable=Table[toAssoc[data[[i]],i],{i,Length@data}];
+
+		(*merge datasets from left to right, i.e. ...JoinAcross[JoinAcross[dataset1,dataset2],dataset3]...*)
+		(*when using "Left" or "Right" as joining method, arrange datasets so that the leftmost or rightmost dataset has the master keys*)
+		joinedSet=Fold[JoinAcross[#1,#2,ToString@keyIndex,OptionValue[JoinMethod],KeyCollisionFunction->OptionValue[keyCollisionFunction]]&,associationTable];
+	];
 ];
 
 (* returned output may be unsorted, can apply sort function afterwards*)
@@ -297,10 +322,10 @@ Return[joinedSet//Dataset]
 
 
 (* ::Text:: *)
-(*Fast dataset merging algorithm with inner joining and the first column as the common key. *)
+(*Fast dataset merging algorithm with inner joining and the first column as the common key. Input must be plain table (list of lists). *)
 
 
-MergeData[list_,"Fast"]:=Flatten[{#,Rest/@{##2}}]&@@@(Pick[#,Length@#>Length@list-1]&/@GatherBy[Join@@list,First]);
+MergeData[list_?(MatchQ[#,{__List}]&),"Fast"]:=Flatten[{#,Rest/@{##2}}]&@@@(Pick[#,Length@#>Length@list-1]&/@GatherBy[Join@@list,First]);
 
 
 (* ::Subsection::Closed:: *)
@@ -351,7 +376,7 @@ Return[output]
 
 
 (* ::Text:: *)
-(*If the timestamp is in strings, DateFormat specifies the format. *)
+(*Automatically converts timestamp to DateObject if the timestamp is in string format, DateFormat specifies the format. *)
 
 
 RemoveNightTime[data_,opt:OptionsPattern[]]:=Module[{location,timezone,dateFormat,groupedData,sunrise,sunset,dailySet,output},
@@ -363,10 +388,11 @@ dateFormat=OptionValue["DateFormat"];
 groupedData=GroupBy[MapAt[If[Head@#===String,DateList[{#,dateFormat}],DateList@#]&,1]/@data,First[#][[1;;3]]&];
 
 output={};
+
 Do[
 sunrise=Sunrise[location,DateObject@day]//DateObject[#,"Instant",TimeZone->timezone]&; (*function Sunrise and Sunset gives DateObject with "Minute" granularity after version 12, need to convert to "Instant" in order to compare with timestamps in the dataset*)
 sunset=Sunset[location,DateObject@day]//DateObject[#,"Instant",TimeZone->timezone]&;
-dailySet=MapAt[DateObject[#,"Instant",DateFormat->dateFormat,TimeZone->timezone]&,1]/@groupedData[day];
+dailySet=MapAt[DateObject[#,"Instant",TimeZone->timezone]&,1]/@groupedData[day];
 AppendTo[output,Select[dailySet,sunrise<First@#<sunset&]]
 ,
 {day,Keys@groupedData}];
@@ -379,15 +405,31 @@ Return[Flatten[output,1]]
 (*Summarize data shape*)
 
 
-DataSummary[dataset_]:=Module[{title=FirstCase[dataset,{__String}]},
+DataSummary[dataset_]:=Module[{title=FirstCase[dataset,{__String}],min,max,mean,histograms,data,lx},
+min[{}]="NaN";
+min[x_List]:=Min@x;
+max[{}]="NaN";
+max[x_List]:=Max@x;
+mean[{}]="NaN";
+mean[x_List]:=Mean@x;
+histograms={};
+
 If[title=!=Missing["NotFound"],
-With[{x=DeleteCases[dataset,{__String}]},
-Print[{Range[Length[title]],title,Flatten[{"min",Min/@Transpose@x}],Flatten[{"max",Max/@Transpose[x]}],Flatten[{"mean",Mean@x}]}//TableForm];
-];
+	data=DeleteCases[dataset,{__String}];
+	With[{x=Cases[#,_?NumericQ]&/@Transpose@data,l=Length/@Transpose@data},
+		lx=Length/@x;
+		Print[{Prepend[Range[Length[title]],""],Prepend[title,""],Flatten[{"min",min/@x}],Flatten[{"max",max/@x}],Flatten[{"mean",mean/@x}],Flatten[{"NaN",l-lx}],Flatten[{"NaN-%",(l-lx)/l*100//N}]}//TableForm];
+		Do[If[Length@x[[i]]!=0,AppendTo[histograms,Histogram[x[[i]],PlotLabel->title[[i]]]]],{i,Length@x}];
+	];
 ,(*else*)
-Print[{Range[Dimensions[dataset][[2]]],Flatten[{"min",Min/@Transpose[dataset]}],Flatten[{"max",Max/@Transpose[dataset]}],Flatten[{"mean",Mean@dataset}]}//TableForm];
+	With[{x=Cases[#,_?NumericQ]&/@Transpose@dataset,l=Length/@Transpose@dataset},
+		lx=Length/@x;
+		Print[{Prepend[Range[Dimensions[dataset][[2]]],""],Flatten[{"min",min/@x}],Flatten[{"max",max/@x}],Flatten[{"mean",mean/@x}],Flatten[{"NaN",l-lx}],Flatten[{"NaN-%",(l-lx)/l*100//N}]}//TableForm];
+		Do[If[Length@x[[i]]!=0,AppendTo[histograms,Histogram[x[[i]],PlotLabel->ToString@i]]],{i,Length@x}]
+	];
 ];
 
+Return[histograms];
 ];
 
 
@@ -643,28 +685,26 @@ Return[output]
 (*Plotting*)
 
 
-(* ::Input:: *)
-(*TwoAxisPlot[{f_,g_},{x_,x1_,x2_}]:=Module[{fgraph,ggraph,frange,grange,fticks,gticks},{fgraph,ggraph}=MapIndexed[Plot[#,{x,x1,x2},Axes->True,PlotStyle->ColorData[1][#2[[1]]]]&,{f,g}];{frange,grange}=(PlotRange/.AbsoluteOptions[#,PlotRange])[[2]]&/@{fgraph,ggraph};fticks=N@FindDivisions[frange,5];*)
-(*gticks=Quiet@Transpose@{fticks,ToString[NumberForm[#,2],StandardForm]&/@Rescale[fticks,frange,grange]};*)
-(*Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];*)
-(**)
+TwoAxisPlot[{f_,g_},{x_,x1_,x2_}]:=Module[{fgraph,ggraph,frange,grange,fticks,gticks},{fgraph,ggraph}=MapIndexed[Plot[#,{x,x1,x2},Axes->True,PlotStyle->ColorData[1][#2[[1]]]]&,{f,g}];{frange,grange}=(PlotRange/.AbsoluteOptions[#,PlotRange])[[2]]&/@{fgraph,ggraph};fticks=N@FindDivisions[frange,5];
+gticks=Quiet@Transpose@{fticks,ToString[NumberForm[#,2],StandardForm]&/@Rescale[fticks,frange,grange]};
+Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];
 
 
-(* ::Input:: *)
-(*TwoAxisListPlot[{f_,g_}]:=Module[{fgraph,ggraph,frange,grange,fticks,gticks},{fgraph,ggraph}=MapIndexed[ListPlot[#,Axes->True,PlotStyle->ColorData[1][#2[[1]]]]&,{f,g}];{frange,grange}=Last[PlotRange/.AbsoluteOptions[#,PlotRange]]&/@{fgraph,ggraph};*)
-(*fticks=Last[Ticks/.AbsoluteOptions[fgraph,Ticks]]/._RGBColor|_GrayLevel|_Hue:>ColorData[1][1];*)
-(*gticks=(MapAt[Function[r,Rescale[r,grange,frange]],#,{1}]&/@Last[Ticks/.AbsoluteOptions[ggraph,Ticks]])/._RGBColor|_GrayLevel|_Hue->ColorData[1][2];*)
-(*Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];*)
-(**)
-(*(*variant*)*)
-(*(*TwoAxisListPlot[{list1_,list2_},opts:OptionsPattern[]]:=Module[{plot1,plot2,ranges},{plot1,plot2}=ListLinePlot/@{list1,list2};*)
-(*ranges=Last@Charting`get2DPlotRange@#&/@{plot1,plot2};*)
-(*ListPlot[{list1,Rescale[list2,Last@ranges,First@ranges]},Frame\[Rule]True,FrameTicks\[Rule]{{Automatic,Charting`FindTicks[First@ranges,Last@ranges]},{Automatic,Automatic}},FrameStyle\[Rule]{{Automatic,ColorData[97][2]},{Automatic,Automatic}},FilterRules[{opts},Options[ListPlot]]]]*)*)
-(**)
-(*TwoAxisListLinePlot[{f_,g_}]:=Module[{fgraph,ggraph,frange,grange,fticks,gticks},{fgraph,ggraph}=MapIndexed[ListLinePlot[#,Axes->True,PlotStyle->ColorData[1][#2[[1]]]]&,{f,g}];{frange,grange}=Last[PlotRange/.AbsoluteOptions[#,PlotRange]]&/@{fgraph,ggraph};*)
-(*fticks=Last[Ticks/.AbsoluteOptions[fgraph,Ticks]]/._RGBColor|_GrayLevel|_Hue:>ColorData[1][1];*)
-(*gticks=(MapAt[Function[r,Rescale[r,grange,frange]],#,{1}]&/@Last[Ticks/.AbsoluteOptions[ggraph,Ticks]])/._RGBColor|_GrayLevel|_Hue->ColorData[1][2];*)
-(*Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];*)
+
+TwoAxisListPlot[{f_,g_}]:=Module[{fgraph,ggraph,frange,grange,fticks,gticks},{fgraph,ggraph}=MapIndexed[ListPlot[#,Axes->True,PlotStyle->ColorData[1][#2[[1]]]]&,{f,g}];{frange,grange}=Last[PlotRange/.AbsoluteOptions[#,PlotRange]]&/@{fgraph,ggraph};
+fticks=Last[Ticks/.AbsoluteOptions[fgraph,Ticks]]/._RGBColor|_GrayLevel|_Hue:>ColorData[1][1];
+gticks=(MapAt[Function[r,Rescale[r,grange,frange]],#,{1}]&/@Last[Ticks/.AbsoluteOptions[ggraph,Ticks]])/._RGBColor|_GrayLevel|_Hue->ColorData[1][2];
+Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];
+
+(*variant*)
+(*TwoAxisListPlot[{list1_,list2_},opts:OptionsPattern[]]:=Module[{plot1,plot2,ranges},{plot1,plot2}=ListLinePlot/@{list1,list2};
+ranges=Last@Charting`get2DPlotRange@#&/@{plot1,plot2};
+ListPlot[{list1,Rescale[list2,Last@ranges,First@ranges]},Frame\[Rule]True,FrameTicks\[Rule]{{Automatic,Charting`FindTicks[First@ranges,Last@ranges]},{Automatic,Automatic}},FrameStyle\[Rule]{{Automatic,ColorData[97][2]},{Automatic,Automatic}},FilterRules[{opts},Options[ListPlot]]]]*)
+
+TwoAxisListLinePlot[{f_,g_}]:=Module[{fgraph,ggraph,frange,grange,fticks,gticks},{fgraph,ggraph}=MapIndexed[ListLinePlot[#,Axes->True,PlotStyle->ColorData[1][#2[[1]]]]&,{f,g}];{frange,grange}=Last[PlotRange/.AbsoluteOptions[#,PlotRange]]&/@{fgraph,ggraph};
+fticks=Last[Ticks/.AbsoluteOptions[fgraph,Ticks]]/._RGBColor|_GrayLevel|_Hue:>ColorData[1][1];
+gticks=(MapAt[Function[r,Rescale[r,grange,frange]],#,{1}]&/@Last[Ticks/.AbsoluteOptions[ggraph,Ticks]])/._RGBColor|_GrayLevel|_Hue->ColorData[1][2];
+Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];
 
 
 (* ::Section::Closed:: *)
@@ -696,7 +736,12 @@ Show[plot,Plot[fit,{x,Min[data[[All,1]]],Max[data[[All,1]]]},PlotStyle->Red],Epi
 ];
 
 
-(* ::Chapter:: *)
+FigureAlbum[figures_List]:=With[{lables=Table[First@Values@AbsoluteOptions[figures[[j]],PlotLabel]/.None->j,{j,Length@figures}]},
+	Manipulate[AssociationThread[lables->figures][i],{i,lables}]
+];
+
+
+(* ::Chapter::Closed:: *)
 (*Solar geometry and meteorological*)
 
 
@@ -811,7 +856,7 @@ Return[loss]
 ];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Thermal models*)
 
 
@@ -869,6 +914,7 @@ Return[faultData]
 (*Insolation is calculated whenever there is valid irradiance reading, valid range of is 0-2000W/m^2. *)
 (*Yield is calculated whenever there is valid power reading. *)
 (*PR is calculated only when there is valid irradiance reading (values between 20-2000W/m^2) AND power reading. *)
+(*PR for DC and AC side is calculated separately, so discrepancy may exist. *)
 (**)
 (*Full choice of column names is: ColumnNames->{"Timestamp","G","Vdc","Idc","Pdc","Vac","Iac","Pac","cum_meter_reading", "Tmod"}. (Tmod still not implemented yet)*)
 
@@ -878,7 +924,7 @@ columns=OptionValue[ColumnNames];
 nominalP=OptionValue[NominalPower];
 resolution$input=OptionValue[InputResolution];
 resolution$output=OptionValue[ReportPeriod];
-irradianceThreshold={20,2000};
+irradianceThreshold={20,1600};
 plotOptions={Mesh->Full,ImageSize->Large,GridLines->Automatic,LabelStyle->{FontFamily->"Helvetica",FontSize->14,FontWeight->Bold,FontColor->Black}};
 
 If[Length[columns]!=Dimensions[data][[2]],
@@ -891,55 +937,66 @@ colIndex=AssociationThread[columns->Range[Length[columns]]];
 (* ----------------- DC yield and PR --------------------------- *)
 If[MemberQ[columns,"Vdc"]&&MemberQ[columns,"Idc"],
 
-(* calculate yield *)
-powerDC={First@#,If[#[[2]]>0&&#[[3]]>0,#[[2]]*#[[3]],0]}&/@data[[All,{colIndex["Timestamp"],colIndex["Vdc"],colIndex["Idc"]}]];
-integrateYieldDC={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[powerDC,MinDataPts->1,ReportPeriod->resolution$output];
-
-(*test if Vdc Idc and Pdc are consistent*)
 If[MemberQ[columns,"Pdc"],
-If[Abs@Mean@With[{x=Select[data[[All,{colIndex["Vdc"],colIndex["Idc"],colIndex["Pdc"]}]],Last@#>0&]},
-(Times@@@x[[All,{1,2}]]-x[[All,{3}]])/x[[All,{3}]]]>0.05,
-(*return warning if two values deviate more than 5%-rel*)
-Print["warning: discrepancy between DC voltage current product and power"]; 
-];
+
+	(*test if Vdc Idc and Pdc are consistent*)
+	If[Abs@Mean@With[{x=Select[data[[All,{colIndex["Vdc"],colIndex["Idc"],colIndex["Pdc"]}]],Last@#>0&]},
+	(Times@@@x[[All,{1,2}]]-x[[All,{3}]])/x[[All,{3}]]]>0.05,
+		(*return warning if two values deviate more than 5%-rel*)
+		Print["warning: discrepancy between DC voltage current product and power"]; 
+	];
+
+	(* calculate yield with power or V and I*)
+	powerDC={First@#,If[NumericQ@#[[4]]&&NonNegative@#[[4]],#[[4]],If[NumericQ@#[[2]]&&NumericQ@#[[3]]&&#[[2]]>0&&#[[3]]>0,#[[2]]*#[[3]],0]]}&/@data[[All,{colIndex["Timestamp"],colIndex["Vdc"],colIndex["Idc"],colIndex["Pdc"]}]];
+	integrateYieldDC={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[powerDC,MinDataPts->1,ReportPeriod->resolution$output];
+
+	, (*else, calculate yield with voltage and current*)
+
+	powerDC={First@#,If[#[[2]]>0&&#[[3]]>0,#[[2]]*#[[3]],0]}&/@Cases[data[[All,{colIndex["Timestamp"],colIndex["Vdc"],colIndex["Idc"]}]],{_,_?NumericQ,_?NumericQ}];
+	integrateYieldDC={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[powerDC,MinDataPts->1,ReportPeriod->resolution$output];
+
 ];
 
 If[NumberQ[nominalP],
-(* calculate specific yield *)
-specificYieldDC={First@#,#[[2]]/nominalP*1000}&/@integrateYieldDC;
+	(* calculate specific yield *)
+	specificYieldDC={First@#,#[[2]]/nominalP*1000}&/@integrateYieldDC;
 
-(* calculate insolation and PR *)
-If[MemberQ[columns,"G"],
-insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-PRdc={First@#,#[[3]]/nominalP/#[[2]]*1000}&/@PeriodSum[{#[[1]],#[[2]],#[[3]]*#[[4]]}&/@Select[data[[All,{colIndex["Timestamp"],colIndex["G"],colIndex["Vdc"],colIndex["Idc"]}]],irradianceThreshold[[1]]<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-];
+	(* calculate insolation and PR *)
+	If[MemberQ[columns,"G"],
+		insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
+		PRdc={First@#,#[[3]]/nominalP/#[[2]]*1000}&/@PeriodSum[
+		{#[[1]],#[[2]],If[NumericQ@#[[5]]&&NonNegative@#[[5]],#[[5]],#[[3]]*#[[4]]]}&/@Select[data[[All,{colIndex["Timestamp"],colIndex["G"],colIndex["Vdc"],colIndex["Idc"],colIndex["Pdc"]}]],irradianceThreshold[[1]]<#[[2]]<irradianceThreshold[[2]]&&(NumericQ@#[[3]]&&NumericQ@#[[4]]&&#[[3]]>=0&&#[[4]]>=0||NumericQ@#[[5]]&&NonNegative@#[[5]])&]
+		,MinDataPts->1,ReportPeriod->resolution$output];
+		(* calculate with data points either with valid power readings or valid voltage-current readings *)
+		
+	];
 ,
-If[MemberQ[columns,"G"],
-insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-];
+	If[MemberQ[columns,"G"],
+		insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
+	];
 ];
 
-, (*else*)
+, (*else, only Pdc is present*)
 
 If[MemberQ[columns,"Pdc"],
 (*non valid readings like "NA" or negative values are removed*)
-powerDC=Select[data[[All,{colIndex["Timestamp"],colIndex["Pdc"]}]],NumberQ[#[[2]]]&&NonNegative[#[[2]]]&];
-integrateYieldDC={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[powerDC,MinDataPts->1,ReportPeriod->resolution$output];
+	powerDC=Select[data[[All,{colIndex["Timestamp"],colIndex["Pdc"]}]],NumberQ[#[[2]]]&&NonNegative[#[[2]]]&];
+	integrateYieldDC={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[powerDC,MinDataPts->1,ReportPeriod->resolution$output];
 
-If[NumberQ[nominalP],
-(* calculate specific yield *)
-specificYieldDC={First@#,#[[2]]/nominalP*1000}&/@integrateYieldDC;
+	If[NumberQ[nominalP],
+	(* calculate specific yield *)
+	specificYieldDC={First@#,#[[2]]/nominalP*1000}&/@integrateYieldDC;
 
-(* calculate insolation and PR *)
-If[MemberQ[columns,"G"],
-insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-PRdc={First@#,#[[3]]/nominalP/#[[2]]*1000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"],colIndex["Pdc"]}]],irradianceThreshold[[1]]<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-];
-,
-If[MemberQ[columns,"G"],
-insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-];
-];
+	(* calculate insolation and PR *)
+	If[MemberQ[columns,"G"],
+		insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
+		PRdc={First@#,#[[3]]/nominalP/#[[2]]*1000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"],colIndex["Pdc"]}]],irradianceThreshold[[1]]<#[[2]]<irradianceThreshold[[2]]&&NumericQ@#[[3]]&&NonNegative@#[[3]]&],MinDataPts->1,ReportPeriod->resolution$output];
+	];
+	,
+	If[MemberQ[columns,"G"],
+		insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
+	];
+	];
 ];
 
 ];
@@ -952,56 +1009,64 @@ AppendTo[outputData,"PRdc"->PRdc];
 AppendTo[plots,"PRdc"->If[PRdc=!=Null,DateListPlot[Tooltip[#,{DateObject@First@#,Last@#}]&/@PRdc,PlotLabel->"PRdc",FrameLabel->{None,"PR"},plotOptions]]];
 
 (* ----------------- AC yield and PR --------------------------- *)
+
 If[MemberQ[columns,"Vac"]&&MemberQ[columns,"Iac"],
 
-(* calculate yield *)
-powerAC={First@#,If[#[[2]]>0&&#[[3]]>0,#[[2]]*#[[3]],0]}&/@data[[All,{colIndex["Timestamp"],colIndex["Vac"],colIndex["Iac"]}]];
-integrateYieldAC={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[powerAC,MinDataPts->1,ReportPeriod->resolution$output];
-
-(*test if Vac Iac and Pac are consistent*)
 If[MemberQ[columns,"Pac"],
-If[Abs@Mean[(Times@@@data[[All,{colIndex["Vac"],colIndex["Iac"]}]]-data[[All,{colIndex["Pac"]}]])/data[[All,{colIndex["Pac"]}]]]>0.05,Print["discrepancy between AC voltage current and power"];];
+	(*test if Vac Iac and Pac are consistent*)
+	If[Abs@Mean[(Times@@@data[[All,{colIndex["Vac"],colIndex["Iac"]}]]-data[[All,{colIndex["Pac"]}]])/data[[All,{colIndex["Pac"]}]]]>0.05,Print["discrepancy between AC voltage current and power"];];
+
+	(* calculate yield using P or V and I*)
+	powerAC={First@#,If[NumericQ@#[[4]]&&NonNegative@#[[4]],#[[4]],If[NumericQ@#[[2]]&&NumericQ@#[[3]]&&#[[2]]>0&&#[[3]]>0,#[[2]]*#[[3]],0]]}&/@data[[All,{colIndex["Timestamp"],colIndex["Vac"],colIndex["Iac"],colIndex["Pac"]}]];
+	integrateYieldAC={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[powerAC,MinDataPts->1,ReportPeriod->resolution$output];
+
+, (* else, calculate yield with V and I *)
+	powerAC={First@#,If[#[[2]]>0&&#[[3]]>0,#[[2]]*#[[3]],0]}&/@Cases[data[[All,{colIndex["Timestamp"],colIndex["Vac"],colIndex["Iac"]}]],{_,_?NumericQ,_?NumericQ}];
+	integrateYieldAC={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[powerAC,MinDataPts->1,ReportPeriod->resolution$output];
+
 ];
 
 If[NumberQ[nominalP],
-(* calculate specific yield *)
-specificYieldAC={First@#,#[[2]]/nominalP*1000}&/@integrateYieldAC;
+	(* calculate specific yield *)
+	specificYieldAC={First@#,#[[2]]/nominalP*1000}&/@integrateYieldAC;
 
-(* calculate insolation and PR *)
-If[MemberQ[columns,"G"],
-If[insolation===Null,
-insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-];
-PRac={First@#,#[[3]]/nominalP/#[[2]]*1000}&/@PeriodSum[{#[[1]],#[[2]],#[[3]]*#[[4]]}&/@Select[data[[All,{colIndex["Timestamp"],colIndex["G"],colIndex["Vac"],colIndex["Iac"]}]],irradianceThreshold[[1]]<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-];
+	(* calculate insolation and PR *)
+	If[MemberQ[columns,"G"],
+	If[insolation===Null,
+		insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
+	];
+	PRac={First@#,#[[3]]/nominalP/#[[2]]*1000}&/@PeriodSum[
+		{#[[1]],#[[2]],If[NumericQ@#[[5]]&&NonNegative@#[[5]],#[[5]],#[[3]]*#[[4]]]}&/@Select[data[[All,{colIndex["Timestamp"],colIndex["G"],colIndex["Vac"],colIndex["Iac"],colIndex["Pac"]}]],irradianceThreshold[[1]]<#[[2]]<irradianceThreshold[[2]]&&(NumericQ@#[[3]]&&NumericQ@#[[4]]&&#[[3]]>=0&&#[[4]]>=0||NumericQ@#[[5]]&&NonNegative@#[[5]])&]
+		,MinDataPts->1,ReportPeriod->resolution$output];
+	];
 ,
-If[MemberQ[columns,"G"]&&insolation===Null,
-insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-];
+	If[MemberQ[columns,"G"]&&insolation===Null,
+	insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
+	];
 ];
 
 , (*else*)
 
 If[MemberQ[columns,"Pac"],
-(*non valid readings like "NA" or negative values are removed*)
-powerAC=Select[data[[All,{colIndex["Timestamp"],colIndex["Pac"]}]],NumberQ[#[[2]]]&&NonNegative[#[[2]]]&];
-integrateYieldAC={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[powerAC,MinDataPts->1,ReportPeriod->resolution$output];
+	(*non valid readings like "NA" or negative values are removed*)
+	powerAC=Select[data[[All,{colIndex["Timestamp"],colIndex["Pac"]}]],NumberQ[#[[2]]]&&NonNegative[#[[2]]]&];
+	integrateYieldAC={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[powerAC,MinDataPts->1,ReportPeriod->resolution$output];
 
 If[NumberQ[nominalP],
-(* calculate specific yield *)
-specificYieldAC={First@#,#[[2]]/nominalP*1000}&/@integrateYieldAC;
+	(* calculate specific yield *)
+	specificYieldAC={First@#,#[[2]]/nominalP*1000}&/@integrateYieldAC;
 
-(* calculate insolation and PR *)
-If[MemberQ[columns,"G"],
-If[insolation===Null,
-insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-];
-PRac={First@#,#[[3]]/nominalP/#[[2]]*1000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"],colIndex["Pac"]}]],irradianceThreshold[[1]]<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-];
+	(* calculate insolation and PR *)
+	If[MemberQ[columns,"G"],
+	If[insolation===Null,
+		insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
+	];
+	PRac={First@#,#[[3]]/nominalP/#[[2]]*1000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"],colIndex["Pac"]}]],irradianceThreshold[[1]]<#[[2]]<irradianceThreshold[[2]]&&NumericQ@#[[3]]&&NonNegative@#[[3]]&],MinDataPts->1,ReportPeriod->resolution$output];
+	];
 ,
-If[MemberQ[columns,"G"]&&insolation===Null,
-insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
-];
+	If[MemberQ[columns,"G"]&&insolation===Null,
+		insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
+	];
 ];
 ];
 
@@ -1201,7 +1266,7 @@ Return[acPlots~Join~dcPlots]
 ];
 
 
-(* ::Chapter:: *)
+(* ::Chapter::Closed:: *)
 (*Spectrum related calculations*)
 
 
