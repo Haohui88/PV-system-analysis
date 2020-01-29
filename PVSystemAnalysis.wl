@@ -14,7 +14,7 @@
 
 (* :Author: Dr. Liu Haohui *)
 
-(* :Package Version: 1.0 *)
+(* :Package Version: master_main *)
 
 (* :Mathematica Version: 12.0 *)
 
@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*General functions*)
 
 
@@ -52,11 +52,6 @@ If[ Not@ValueQ[RunningAverage::usage],
 RunningAverage::usage = "This function select non-missing and daytime data, obtain averaged values for every x minute interval."]
 
 Options[RunningAverage]={ReportPeriod->Quantity[10,"Minutes"]};
-
-If[ Not@ValueQ[RemoveNightTime::usage],
-RemoveNightTime::usage = "Remove data points corresponding to night time."]
-
-Options[RemoveNightTime]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},Location->$GeoLocation};
 
 If[ Not@ValueQ[DataSummary::usage],
 DataSummary::usage = "Simple summary of data shape."]
@@ -116,12 +111,17 @@ If[ Not@ValueQ[FigureAlbum::usage],
 FigureAlbum::usage = "Inspect a set of plots."]
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Solar related*)
 
 
 If[ Not@ValueQ[DayLength::usage],
 DayLength::usage = "DayLength[Julian day,latitude] calculates day length in number of hours."]
+
+If[ Not@ValueQ[RemoveNightTime::usage],
+RemoveNightTime::usage = "Remove data points corresponding to night time."]
+
+Options[RemoveNightTime]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},Location->$GeoLocation};
 
 If[ Not@ValueQ[ArrayPitch::usage],
 ArrayPitch::usage = "ArrayPitch[tilt, width, \[Theta]limit] calculates the required pitch given array tilt, collector width, and desired shading limit angle."]
@@ -140,6 +140,12 @@ PRcorrT::usage = "PRcorrT[power,ratedPower,irradiance,T,Tc] calculates the tempe
 
 If[ Not@ValueQ[PRcorrW::usage],
 PRcorrW::usage = "PRcorrW[power,ratedPower,irradiance,T,Tc,avgT] calculates the temperature corrected performance ratio."]
+
+If[ Not@ValueQ[VoltageRatio::usage],
+VoltageRatio::usage = "VoltageRatio calculates the ratio of actual voltage to Voc (STC and expected)."]
+
+If[ Not@ValueQ[CurrentRatio::usage],
+CurrentRatio::usage = "CurrentRatio calculates the ratio of actual current to Isc (STC and expected)."]
 
 If[ Not@ValueQ[CablingLoss::usage],
 CablingLoss::usage = "CablingLoss[current,cableLength,crossSection] calculates the cabling loss in W."]
@@ -198,7 +204,7 @@ h=6.626*10^-34;
 (*General functions*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Reduce DateObject*)
 
 
@@ -375,36 +381,6 @@ Return[output]
 
 
 (* ::Subsection::Closed:: *)
-(*Remove data points during night  time*)
-
-
-(* ::Text:: *)
-(*Automatically converts timestamp to DateObject if the timestamp is in string format, DateFormat specifies the format. *)
-
-
-RemoveNightTime[data_,opt:OptionsPattern[]]:=Module[{location,timezone,dateFormat,groupedData,sunrise,sunset,dailySet,output},
-location=OptionValue[Location];
-timezone=LocalTimeZone@location;
-dateFormat=OptionValue["DateFormat"];
-
-(*convert timestamps to DateLists, and group the dataset by days*)
-groupedData=GroupBy[MapAt[If[Head@#===String,DateList[{#,dateFormat}],DateList@#]&,1]/@data,First[#][[1;;3]]&];
-
-output={};
-
-Do[
-sunrise=Sunrise[location,DateObject@day]//DateObject[#,"Instant",TimeZone->timezone]&; (*function Sunrise and Sunset gives DateObject with "Minute" granularity after version 12, need to convert to "Instant" in order to compare with timestamps in the dataset*)
-sunset=Sunset[location,DateObject@day]//DateObject[#,"Instant",TimeZone->timezone]&;
-dailySet=MapAt[DateObject[#,"Instant",TimeZone->timezone]&,1]/@groupedData[day];
-AppendTo[output,Select[dailySet,sunrise<First@#<sunset&]]
-,
-{day,Keys@groupedData}];
-
-Return[Flatten[output,1]]
-];
-
-
-(* ::Subsection::Closed:: *)
 (*Summarize data shape*)
 
 
@@ -570,9 +546,10 @@ Return[SortBy[periodResults,First]]
 (*	weight position should be specified as: column_number_of_the_weight - 1 (minus timestamp column) ,*)
 (*	weighted average for the weighting data should not be used.*)
 (*No minimum data point requirement is defined, results will not be Missing as long as there is data. *)
+(*Make sure timestamp is contained in the first column. *)
 
 
-PeriodStats[data_,start_,end_,opt:OptionsPattern[]]:=Module[{fn,tstep,wdAlignment,padding,ts=Null,dataDimension,wgtPos,output="No result"},
+PeriodStats[data_,start_:Automatic,end_:Automatic,opt:OptionsPattern[]]:=Module[{fn,tstep,wdAlignment,padding,ts=Null,startTime,endTime,dataDimension,wgtPos,output="No result"},
 fn=OptionValue[function];
 tstep=OptionValue[TimeStep];
 wdAlignment=OptionValue[windowAlignment];
@@ -589,25 +566,32 @@ If[Head@data===TemporalData,
 		If[Dimensions[data][[2]]==2,ts=TimeSeries@If[Head@data===Dataset,Normal@Values@data,data]];
 	];
 ];
+
+If[start===Automatic,startTime=ts["FirstDate"];,startTime=start;];
+If[end===Automatic,endTime=ts["LastDate"];,endTime=end;];
 	
 dataDimension=ts["ValueDimensions"];
 If[wgtPos=!=Null,
 	If[1<=wgtPos<=dataDimension,
 		output=If[dataDimension>1,
-			MovingMap[fnWgtAvg[#,dataDimension,#[[All,wgtPos]]]&,ts,{tstep,wdAlignment,{start,end,tstep}},padding]
+			MovingMap[fnWgtAvg[#,dataDimension,#[[All,wgtPos]]]&,ts,{tstep,wdAlignment,{startTime,endTime,tstep}},padding]
 		,(*else, when dataset does not contain valid weighting data, simply apply averaging without weighting*)
 			Print@"warning: input dataset does not contain weighting data, simple averaging is applied";
-			MovingMap[fnAvg[#,dataDimension]&,ts,{tstep,wdAlignment,{start,end,tstep}},padding]
+			MovingMap[fnAvg[#,dataDimension]&,ts,{tstep,wdAlignment,{startTime,endTime,tstep}},padding]
 		];
 	,
 		Print@"warning: weighting data incorrectly defined, simple averaging is applied";
-		output=MovingMap[fnAvg[#,dataDimension]&,ts,{tstep,wdAlignment,{start,end,tstep}},padding];
+		output=MovingMap[fnAvg[#,dataDimension]&,ts,{tstep,wdAlignment,{startTime,endTime,tstep}},padding];
 	];
 ,(*else*)
-	output=MovingMap[fn[#,dataDimension]&,ts,{tstep,wdAlignment,{start,end,tstep}},padding];
+	output=MovingMap[fn[#,dataDimension]&,ts,{tstep,wdAlignment,{startTime,endTime,tstep}},padding];
 ];
 
-Return[output]
+Return[
+Which[
+	Head@data===TemporalData,output,
+	Head@data===Dataset,ToDataset[Flatten/@output["DatePath"],Normal@Keys@First@data],
+	Head@data===List,output["DatePath"]]]
 ];
 
 
@@ -744,7 +728,7 @@ FigureAlbum[figures_List]:=With[{lables=Table[First@Values@AbsoluteOptions[figur
 ];
 
 
-(* ::Chapter::Closed:: *)
+(* ::Chapter:: *)
 (*Solar geometry and meteorological*)
 
 
@@ -765,7 +749,46 @@ Return[Re@dayLength];
 ];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
+(*Remove data points during night  time*)
+
+
+(* ::Text:: *)
+(*Works with tables or datasets. *)
+(*Automatically converts timestamp to DateObject if the timestamp is in string format, DateFormat specifies the format. *)
+
+
+RemoveNightTime[dataIn_,opt:OptionsPattern[]]:=Module[{location,timezone,dateFormat,data,groupedData,sunrise,sunset,dailySet,output},
+location=OptionValue[Location];
+timezone=LocalTimeZone@location;
+dateFormat=OptionValue["DateFormat"];
+
+data=If[Head@dataIn===Dataset,Normal@Values@dataIn,dataIn];
+
+(*convert timestamps to DateLists, and group the dataset by days*)
+groupedData=GroupBy[MapAt[If[Head@#===String,DateList[{#,dateFormat}],DateList@#]&,1]/@data,First[#][[1;;3]]&];
+
+output={};
+
+Do[
+sunrise=Sunrise[location,DateObject@day]//DateObject[#,"Instant",TimeZone->timezone]&; (*function Sunrise and Sunset gives DateObject with "Minute" granularity after version 12, need to convert to "Instant" in order to compare with timestamps in the dataset*)
+sunset=Sunset[location,DateObject@day]//DateObject[#,"Instant",TimeZone->timezone]&;
+dailySet=MapAt[DateObject[#,"Instant",TimeZone->timezone]&,1]/@groupedData[day];
+AppendTo[output,Select[dailySet,sunrise<First@#<sunset&]]
+,
+{day,Keys@groupedData}];
+
+Return@
+If[Head@dataIn===Dataset,
+	ToDataset[Flatten[output,1],Normal@Keys@First@dataIn]
+,
+	Flatten[output,1]
+]
+
+];
+
+
+(* ::Subsection::Closed:: *)
 (*Inter-row pitch & profile angle (shading limit angle) & GCR*)
 
 
@@ -782,11 +805,37 @@ ShadeLimitAngle[tilt_,width_,pitch_]:=N[ArcTan[width*Sin[tilt \[Degree]]/(pitch-
 GCR[tilt_,\[Theta]limit_]:=1/(Cos[tilt \[Degree]]+Sin[tilt \[Degree]]/Tan[\[Theta]limit \[Degree]]);
 
 
+(* ::Subsection:: *)
+(*Angle of incidence*)
+
+
+(* ::Text:: *)
+(*projection (dot product) = cos(surface_tilt) * cos(solar_zenith) +  sin(surface_tilt) * sin(solar_zenith) * cos(solar_azimuth - surface_azimuth). *)
+(*sunZenith is used instead of sun height. *)
+(*Array orientation and sun azimuth can be measured with reference to North or South, as long as it is consistent. *)
+(*AOI > 90 can be encountered, meaning sunlight comes from back of the module. *)
+
+
+AngleOfIncidence[tilt_,orientation_,sunZenith_,sunAzimuth_]:=Module[{planeNormal,sunLight,projection,aoi},
+planeNormal={Sin[tilt \[Degree]]*Sin[orientation \[Degree]],Sin[tilt \[Degree]]*Cos[orientation \[Degree]],Cos[tilt \[Degree]]}; (* unit vector for plane normal *)
+sunLight={Sin[sunZenith \[Degree]]*Sin[sunAzimuth \[Degree]],Sin[sunZenith \[Degree]]*Cos[sunAzimuth \[Degree]],Cos[sunZenith \[Degree]]}; (* unit vector for sun light *)
+
+projection=planeNormal.sunLight; (* dot product of two unit vectors *)
+aoi=ArcCos[projection]/Degree//N;
+
+Return@aoi;
+];
+
+
 (* ::Chapter:: *)
 (*PV system related calculations*)
 
 
 (* ::Section::Closed:: *)
+(*Misc KPIs*)
+
+
+(* ::Subsection::Closed:: *)
 (*Performance ratio*)
 
 
@@ -808,6 +857,26 @@ PRcorrT[power_,ratedPower_,irradiance_?NonPositive,sT_,sTC_]:="NA";
 PRcorrW[power_,ratedPower_,irradiance_?Positive,sT_,sTC_,avgT_]:=Total[power]/Total[ratedPower*irradiance/1000*(1-sTC*(avgT-sT))]//N;
 PRcorrW[power_,ratedPower_,irradiance_?NonPositive,sT_,sTC_,avgT_]:="NA";
 
+
+
+(* ::Subsection::Closed:: *)
+(*Current & voltage*)
+
+
+(* ::Text:: *)
+(*VoltageRatio returns a simple ratio to Voc at STC, and a ratio to expected Voc under a certain operating condition. *)
+(*Dependence of Voc on irradiance is based on the following equation: *)
+(*Subscript[V, oc] = (Subscript[nN, s]kT)/q ln(Subscript[I, sc]/Subscript[I, 0]) = (Subscript[nN, s]kT)/q ln(Subscript[I, sc,STC]/Subscript[I, 0] G/1000) =  Subscript[V, oc,T] + (Subscript[nN, s]kT)/q ln((G/1000))*)
+
+
+VoltageRatio[V_,Voc_,Gpoa_,Tmod_,Ns_,tempCoeff_:-0.003,n_:1]:={V/Voc,V/(Voc+Voc*tempCoeff*(Tmod-298.15)+k*Tmod*Ns*n/q*Log[Gpoa/1000])};
+
+
+(* ::Text:: *)
+(*CurrentRatio returns a simple ratio to Isc, and a ratio to expected Isc under a certain operating condition. *)
+
+
+CurrentRatio[current_,Isc_,Gpoa_,Tmod_,tempCoeff_:0.0005]:={current/Isc,current/(Gpoa/1000*(Isc+Isc*tempCoeff*(Tmod-298.15)))};
 
 
 (* ::Section::Closed:: *)
@@ -1107,7 +1176,7 @@ TimeSeriesSummary[tsOutput_]:=With[{merged=MergeData[tsOutput//Values,"Fast"]},
 Grid[Append[Append[Prepend[ReduceDateObject[merged],Prepend[Keys@tsOutput,""]],Prepend[Rest@Total@merged,"total"]],Prepend[Rest@Mean@merged,"mean"]],Frame->All]];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Cross-sectional inspection*)
 
 
@@ -1185,7 +1254,7 @@ If[MemberQ[columns,"Pac"],
 		AppendTo[acPlots,"Pac-Pdc"->ListPlot[data[[All,{colIndex["Pdc"],colIndex["Pac"]}]],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"}]];
 
 		(*inverter efficiency-irradiance plot*)
-		AppendTo[acPlots,"eff_inverter-Gpoa"->ListPlot[{#[[1]],#[[3]]/#[[2]]}&/@Cases[data[[All,{colIndex["Gpoa"],colIndex["Pac"],colIndex["Pdc"]}]],{__?Positive}],PlotLabel->"eff_inverter-Gpoa",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"}]];
+		AppendTo[acPlots,"eff_inverter-Gpoa"->ListPlot[{#[[1]],#[[2]]/#[[3]]}&/@Cases[data[[All,{colIndex["Gpoa"],colIndex["Pac"],colIndex["Pdc"]}]],{__?Positive}],PlotLabel->"eff_inverter-Gpoa",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]}]];
 	];
 
 	If[NumberQ[nominalP],
@@ -1212,14 +1281,14 @@ If[MemberQ[columns,"Pac"],
 			(*alternative Pac-Pdc plot*)
 			AppendTo[acPlots,"Pac-Pdc"->ListPlot[{data[[All,colIndex["Pdc"]]],tempData[[All,2]]}\[Transpose],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"}]];
 			(*alternative inverter efficiency-irradiance plot*)
-			AppendTo[acPlots,"eff_inverter-Gpoa"->ListPlot[{#[[4]]/(#[[3]]*#[[2]]),#[[1]]}&/@Cases[data[[All,{colIndex["Gpoa"],colIndex["Vac"],colIndex["Iac"],colIndex["Pdc"]}]],{__?Positive}],PlotLabel->"eff_inverter-Gpoa",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"}]];
+			AppendTo[acPlots,"eff_inverter-Gpoa"->ListPlot[{#[[3]]*#[[2]]/#[[4]],#[[1]]}&/@Cases[data[[All,{colIndex["Gpoa"],colIndex["Vac"],colIndex["Iac"],colIndex["Pdc"]}]],{__?Positive}],PlotLabel->"eff_inverter-Gpoa",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]}]];
 		,
 			If[MemberQ[columns,"Vdc"]&&MemberQ[columns,"Idc"],
 				tempData2=data[[All,colIndex["Vdc"]]]*data[[All,colIndex["Idc"]]];
 				(*alternative Pac-Pdc plot*)
 				AppendTo[acPlots,"Pac-Pdc"->ListPlot[{tempData2,tempData[[All,2]]}\[Transpose],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"}]];
 				(*alternative inverter efficiency-irradiance plot*)
-				AppendTo[acPlots,"eff_inverter-Gpoa"->ListPlot[{#[[3]]/#[[2]],#[[1]]}&/@Cases[Join[tempData,List@tempData2,2],{__?Positive}],PlotLabel->"eff_inverter-Gpoa",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"}]];
+				AppendTo[acPlots,"eff_inverter-Gpoa"->ListPlot[{#[[2]]/#[[3]],#[[1]]}&/@Cases[Join[tempData,List@tempData2,2],{__?Positive}],PlotLabel->"eff_inverter-Gpoa",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]}]];
 			];
 		];
 
