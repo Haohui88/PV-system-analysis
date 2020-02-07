@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*General functions*)
 
 
@@ -34,11 +34,20 @@ ReduceDateObject::usage = "Quick conversion of DateObject back to string."]
 
 Options[ReduceDateObject]={"DateFormat"->Automatic};
 
+If[ Not@ValueQ[ConvertDateObject::usage],
+ConvertDateObject::usage = "Quick conversion of DateObject to show in a specified timezone."]
+
 If[ Not@ValueQ[ToDataset::usage],
 ToDataset::usage = "Quick conversion of a table to a dataset."]
 
 If[ Not@ValueQ[FromDataset::usage],
 FromDataset::usage = "Quick conversion of a dataset to a table."]
+
+If[ Not@ValueQ[ToTemporalData::usage],
+ToTemporalData::usage = "Quick conversion to a temporal data object."]
+
+If[ Not@ValueQ[FromTemporalData::usage],
+FromTemporalData::usage = "Quick conversion from a temporal data object to extract paths."]
 
 If[ Not@ValueQ[MultiImport::usage],
 MultiImport::usage = "Import multiple files at the same time."]
@@ -119,7 +128,7 @@ If[ Not@ValueQ[DayLength::usage],
 DayLength::usage = "DayLength[Julian day,latitude] calculates day length in number of hours."]
 
 If[ Not@ValueQ[RemoveNightTime::usage],
-RemoveNightTime::usage = "Remove data points corresponding to night time."]
+RemoveNightTime::usage = "Remove data points corresponding to night time. At the same time converting timestamps to DateObjects. "]
 
 Options[RemoveNightTime]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},Location->$GeoLocation};
 
@@ -205,7 +214,7 @@ h=6.626*10^-34;
 
 
 (* ::Subsection::Closed:: *)
-(*Reduce DateObject*)
+(*DateObject handling*)
 
 
 ReduceDateObject[dataset_,position_:1,opt:OptionsPattern[]]:=Module[{reducedOutput,format},
@@ -225,8 +234,11 @@ Return[reducedOutput]
 ];
 
 
+ConvertDateObject[dataset_,timezone_,position_:1]:=Map[MapAt[DateObject[#,TimeZone->timezone]&,#,position]&,dataset];
+
+
 (* ::Subsection::Closed:: *)
-(*Convert to and from dataset*)
+(*Convert to and from dataset object*)
 
 
 (* ::Text:: *)
@@ -256,6 +268,34 @@ Return[dataset]
 
 
 FromDataset[dataset_]:=Prepend[Normal@Values@dataset,Normal@Keys@First@dataset];
+
+
+(* ::Subsection::Closed:: *)
+(*Convert to and from time series object*)
+
+
+(* ::Text:: *)
+(*Assumes data is regular shaped table, all share the same DateObject timestamps. *)
+
+
+ToTemporalData[data_,opt:OptionsPattern[]]:=Which[
+Dimensions[data][[2]]==2,
+	TimeSeries@data,
+Dimensions[data][[2]]>2,
+	TemporalData[data[[All,2;;]]\[Transpose],{First/@data},opt]
+];
+
+
+(* ::Text:: *)
+(*Note that time is converted back into DateObject assuming local machine timezone! *)
+
+
+FromTemporalData[ts_]:=If[
+ts["PathCount"]==1,
+	ts["DatePath"]
+,
+	Prepend[ts["ValueList"],First@ts["DateList"]]\[Transpose]
+];
 
 
 (* ::Section:: *)
@@ -540,13 +580,13 @@ Return[SortBy[periodResults,First]]
 (* ::Text:: *)
 (*More generic treatment using built-in functionality of TimeSeries in function PeriodStats: *)
 (**)
-(*Start and end time can be in DateList format of a DateObject. *)
+(*Start and end time should be DateObjects. They can also be specified in DateList format of a DateObject, but need to ensure the output of DateList is in local time zone of evaluation (computer system time zone). *)
 (*Weighted average calculation is triggered by specifying option weightPosition (the value in option function will be overwritten),*)
 (*	needs dataset to contain weighting data, *)
 (*	weight position should be specified as: column_number_of_the_weight - 1 (minus timestamp column) ,*)
 (*	weighted average for the weighting data should not be used.*)
 (*No minimum data point requirement is defined, results will not be Missing as long as there is data. *)
-(*Make sure timestamp is contained in the first column. *)
+(*Make sure timestamp is contained in the first column and preferably in DateObject format to avoid ambiguous interpretation when converting to TimeSeries object. *)
 
 
 PeriodStats[data_,start_:Automatic,end_:Automatic,opt:OptionsPattern[]]:=Module[{fn,tstep,wdAlignment,padding,ts=Null,startTime,endTime,dataDimension,wgtPos,output="No result"},
@@ -750,15 +790,16 @@ Return[Re@dayLength];
 
 
 (* ::Subsection::Closed:: *)
-(*Remove data points during night  time*)
+(*Night time data removal*)
 
 
 (* ::Text:: *)
 (*Works with tables or datasets. *)
 (*Automatically converts timestamp to DateObject if the timestamp is in string format, DateFormat specifies the format. *)
+(*Make sure timestamp of input data is in local timezone of the site but not of the local computer doing the evaluation. *)
 
 
-RemoveNightTime[dataIn_,opt:OptionsPattern[]]:=Module[{location,timezone,dateFormat,data,groupedData,sunrise,sunset,dailySet,output},
+RemoveNightTime[dataIn_,opt:OptionsPattern[]]:=Module[{location,timezone,dateFormat,data,convertTime,groupedData,sunrise,sunset,dailySet,output},
 location=OptionValue[Location];
 timezone=LocalTimeZone@location;
 dateFormat=OptionValue["DateFormat"];
@@ -766,17 +807,23 @@ dateFormat=OptionValue["DateFormat"];
 data=If[Head@dataIn===Dataset,Normal@Values@dataIn,dataIn];
 
 (*convert timestamps to DateLists, and group the dataset by days*)
-groupedData=GroupBy[MapAt[If[Head@#===String,DateList[{#,dateFormat}],DateList@#]&,1]/@data,First[#][[1;;3]]&];
+convertTime=MapAt[
+	If[
+		Head@#===String,Check[DateList@{#,dateFormat},Check[DateList@#,{0,0,0}]]
+		,
+		DateList[#,TimeZone->timezone]]&
+,1];
+groupedData=GroupBy[convertTime/@data,First[#][[1;;3]]&];
 
 output={};
 
 Do[
-sunrise=Sunrise[location,DateObject@day]//DateObject[#,"Instant",TimeZone->timezone]&; (*function Sunrise and Sunset gives DateObject with "Minute" granularity after version 12, need to convert to "Instant" in order to compare with timestamps in the dataset*)
-sunset=Sunset[location,DateObject@day]//DateObject[#,"Instant",TimeZone->timezone]&;
+sunrise=Sunrise[location,DateObject[day,TimeZone->timezone]]//DateObject[#,"Instant",TimeZone->timezone]&; (*function Sunrise and Sunset gives DateObject with "Minute" granularity after version 12, need to convert to "Instant" in order to compare with timestamps in the dataset*)
+sunset=Sunset[location,DateObject[day,TimeZone->timezone]]//DateObject[#,"Instant",TimeZone->timezone]&;
 dailySet=MapAt[DateObject[#,"Instant",TimeZone->timezone]&,1]/@groupedData[day];
 AppendTo[output,Select[dailySet,sunrise<First@#<sunset&]]
 ,
-{day,Keys@groupedData}];
+{day,DeleteCases[Keys@groupedData,{0,0,0}]}];
 
 Return@
 If[Head@dataIn===Dataset,
@@ -789,6 +836,10 @@ If[Head@dataIn===Dataset,
 
 
 (* ::Subsection::Closed:: *)
+(*Array configuration calculations*)
+
+
+(* ::Text:: *)
 (*Inter-row pitch & profile angle (shading limit angle) & GCR*)
 
 
@@ -805,7 +856,7 @@ ShadeLimitAngle[tilt_,width_,pitch_]:=N[ArcTan[width*Sin[tilt \[Degree]]/(pitch-
 GCR[tilt_,\[Theta]limit_]:=1/(Cos[tilt \[Degree]]+Sin[tilt \[Degree]]/Tan[\[Theta]limit \[Degree]]);
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Angle of incidence*)
 
 
@@ -1176,7 +1227,7 @@ TimeSeriesSummary[tsOutput_]:=With[{merged=MergeData[tsOutput//Values,"Fast"]},
 Grid[Append[Append[Prepend[ReduceDateObject[merged],Prepend[Keys@tsOutput,""]],Prepend[Rest@Total@merged,"total"]],Prepend[Rest@Mean@merged,"mean"]],Frame->All]];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Cross-sectional inspection*)
 
 
