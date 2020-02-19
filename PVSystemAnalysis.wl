@@ -90,6 +90,8 @@ PeriodStats::usage = "PeriodStats[data,start_time,end_time] calculates the stats
 
 Options[PeriodStats]={TimeStep->Quantity[1,"Days"],function->fnAvg,windowAlignment->Left,windowPadding->None,weightPosition->Null};
 
+If[ Not@ValueQ[GetNASAPowerData::usage],
+GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location."]
 
 
 (* ::Section::Closed:: *)
@@ -449,6 +451,38 @@ If[title=!=Missing["NotFound"],
 ];
 
 Return[histograms];
+];
+
+
+(* ::Subsection::Closed:: *)
+(*Import NASA data*)
+
+
+(* ::Text:: *)
+(*Get NASA POWER project data sets via API for a single location. *)
+(*Default is to get TMY monthly values for solar irradiance (GHI), temperature, wind speed at 2m and precipitation. *)
+
+
+GetNASAPowerData::notime="time range required but not specified.";
+
+GetNASAPowerData[lat_,lon_,par_:"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT",temporalType_:"CLIMATOLOGY",start_:Null,end_:Null]:=Module[{accessAPI,fileAddress,output},
+
+accessAPI="https://power.larc.nasa.gov/cgi-bin/v1/DataAccess.py?request=execute&identifier=SinglePoint&userCommunity=SSE&user=anonymous&outputList=CSV&lat="<>ToString@lat<>"&lon="<>ToString@lon<>"&tempAverage="<>temporalType<>"&parameters="<>par;
+
+If[temporalType!="CLIMATOLOGY",
+	If[start===Null||end===Null,
+		Message[GetNASAPowerData::notime];
+		Abort[];
+	,
+		accessAPI=accessAPI<>"&startDate="<>start<>"&endDate="<>end;
+	];
+];
+
+fileAddress=Association[Import[accessAPI,"JSON"]]["outputs"]//Values;
+output=Import@First@fileAddress;
+
+Return[Cases[{output},{___,{"-END HEADER-"},x___}->x]];
+
 ];
 
 
@@ -973,15 +1007,19 @@ Return[loss]
 ];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Thermal models*)
+
+
+(* ::Text:: *)
+(*Temperature coefficient tCoeff should be around negative and in relative percentage of STC, around -0.003 ~ -0.004. *)
 
 
 ModuleTemperature[airT_,irrLv_,tCoeff_,\[Eta]0_,uL_:29]:=Module[{\[Eta]c,Tmod,t,\[Tau],\[Alpha]},
 \[Tau]=0.95; (* transmittance of glazing *)
 \[Alpha]=0.8; (* fraction of solar spectrum absorbed *)
 
-\[Eta]c[T_]:=\[Eta]0-tCoeff*(T-airT)*\[Eta]0;
+\[Eta]c[T_]:=\[Eta]0+tCoeff*(T-airT)*\[Eta]0;
 Tmod=t/.(FindRoot[t==airT+irrLv*((\[Tau]*\[Alpha])/uL)*(1-\[Eta]c[t]/(\[Tau]*\[Alpha])),{t,airT+10}]);
 Return[Tmod]
 ];
