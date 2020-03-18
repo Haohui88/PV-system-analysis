@@ -94,7 +94,7 @@ If[ Not@ValueQ[GetNASAPowerData::usage],
 GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location."]
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Plotting related*)
 
 
@@ -106,6 +106,9 @@ TwoAxisListPlot::usage = "Two axis plotting: TwoAxisListPlot[{f,g}]."]
 
 If[ Not@ValueQ[TwoAxisListLinePlot::usage],
 TwoAxisListLinePlot::usage = "Two axis plotting: TwoAxisListLinePlot[{f,g}]."]
+
+If[ Not@ValueQ[HighlightData::usage],
+HighlightData::usage = "HighlightData[data_,logic_,positions_:\"default\",color_:Red] labels the selected columns (specified by positions) in a certain color."]
 
 If[ Not@ValueQ[EnhancedShow::usage],
 EnhancedShow::usage = "Enhanced plots with some reformatting."]
@@ -122,7 +125,7 @@ If[ Not@ValueQ[FigureAlbum::usage],
 FigureAlbum::usage = "Inspect a set of plots."]
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Solar related*)
 
 
@@ -142,6 +145,12 @@ ShadeLimitAngle::usage = "ShadeLimitAngle[tilt, width, pitch] calculates the sha
 
 If[ Not@ValueQ[GCR::usage],
 GCR::usage = "GCR[tilt, \[Theta]limit] estimates the ground coverage ratio for a desired tilt and shading limit angle."]
+
+If[ Not@ValueQ[AoiProjection::usage],
+AoiProjection::usage = "AoiProjection[tilt,orientation,sunZenith,sunAzimuth] returns the cosine of the incidence angle between sunlight and module plane."]
+
+If[ Not@ValueQ[AngleOfIncidence::usage],
+AngleOfIncidence::usage = "AngleOfIncidence[tilt,orientation,sunZenith,sunAzimuth] returns the incidence angle between sunlight and module plane."]
 
 If[ Not@ValueQ[PR::usage],
 PR::usage = "PR[power,ratedPower,irradiance] calculates the performance ratio."]
@@ -177,6 +186,9 @@ Options[TimeSeriesInspection]={ColumnNames->{"Timestamp","G","Vdc","Idc","Pdc","
 
 If[ Not@ValueQ[TimeSeriesSummary::usage],
 TimeSeriesSummary::usage = "Quick summary table of outputs from TimeSeriesInspection. "]
+
+If[ Not@ValueQ[TimeSeriesInspect::usage],
+TimeSeriesInspect::usage = "TimeSeriesInspect[data,start,end,plot options] returns {cropped timeseries, DateListPlots for each column}. "]
 
 If[ Not@ValueQ[CrossSectionInspection::usage],
 CrossSectionInspection::usage = "Cross sectional inspection and plots of system performance."]
@@ -278,13 +290,16 @@ FromDataset[dataset_]:=Prepend[Normal@Values@dataset,Normal@Keys@First@dataset];
 
 (* ::Text:: *)
 (*Assumes data is regular shaped table, all share the same DateObject timestamps. *)
+(*Type of input data can be Dataset, or tables with pure timestamp-value(s) pairs, or tables with title rows. *)
+(*Option such as Timezone can be specified. *)
 
 
 ToTemporalData[data_,opt:OptionsPattern[]]:=Which[
 Dimensions[data][[2]]==2,
-	TimeSeries@data,
+	TimeSeries[If[Head@data===Dataset,Normal@Values@data,DeleteCases[data,{__String}]],opt],
 Dimensions[data][[2]]>2,
-	TemporalData[data[[All,2;;]]\[Transpose],{First/@data},opt]
+	With[{d=If[Head@data===Dataset,Normal@Values@data,DeleteCases[data,{__String}]]},
+	TemporalData[d[[All,2;;]]\[Transpose],{First/@d},opt]]
 ];
 
 
@@ -743,7 +758,11 @@ Return[output]
 
 
 (* ::Section::Closed:: *)
-(*Plotting*)
+(*Plotting related*)
+
+
+(* ::Subsection:: *)
+(*Customized plot types*)
 
 
 TwoAxisPlot[{f_,g_},{x_,x1_,x2_}]:=Module[{fgraph,ggraph,frange,grange,fticks,gticks},{fgraph,ggraph}=MapIndexed[Plot[#,{x,x1,x2},Axes->True,PlotStyle->ColorData[1][#2[[1]]]]&,{f,g}];{frange,grange}=(PlotRange/.AbsoluteOptions[#,PlotRange])[[2]]&/@{fgraph,ggraph};fticks=N@FindDivisions[frange,5];
@@ -766,6 +785,25 @@ TwoAxisListLinePlot[{f_,g_}]:=Module[{fgraph,ggraph,frange,grange,fticks,gticks}
 fticks=Last[Ticks/.AbsoluteOptions[fgraph,Ticks]]/._RGBColor|_GrayLevel|_Hue:>ColorData[1][1];
 gticks=(MapAt[Function[r,Rescale[r,grange,frange]],#,{1}]&/@Last[Ticks/.AbsoluteOptions[ggraph,Ticks]])/._RGBColor|_GrayLevel|_Hue->ColorData[1][2];
 Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];
+
+
+(* ::Subsection:: *)
+(*Auxiliary*)
+
+
+(* ::Text:: *)
+(*Labels the selected columns (specified by positions) in a certain color. *)
+(*Logic should be specified as a function or pure function that applies to the entire row. *)
+(*Positions should be specified in a format compatible with position specification in MapAt. *)
+
+
+HighlightData[data_,logic_,positions_:"default",color_:Red]:=Module[{highlightPos,output},
+If[positions==="default",highlightPos=Rest[List/@Range@Last@Dimensions@data];,highlightPos=positions;];
+
+output=If[logic@#,MapAt[Style[#,color]&,#,highlightPos],#]&/@data;
+
+Return@output;
+];
 
 
 (* ::Section::Closed:: *)
@@ -887,6 +925,11 @@ ArrayPitch[tilt_,width_,\[Theta]limit_]:=width*Cos[tilt \[Degree]]+width*Sin[til
 ShadeLimitAngle[tilt_,width_,pitch_]:=N[ArcTan[width*Sin[tilt \[Degree]]/(pitch-width*Cos[tilt \[Degree]])]/Degree];
 
 
+(* ::Text:: *)
+(*Calculate resulting GCR for a certain tilt and desired shading limit angle. *)
+(*GCR is also equal to collector width / pitch. *)
+
+
 GCR[tilt_,\[Theta]limit_]:=1/(Cos[tilt \[Degree]]+Sin[tilt \[Degree]]/Tan[\[Theta]limit \[Degree]]);
 
 
@@ -896,27 +939,29 @@ GCR[tilt_,\[Theta]limit_]:=1/(Cos[tilt \[Degree]]+Sin[tilt \[Degree]]/Tan[\[Thet
 
 (* ::Text:: *)
 (*projection (dot product) = cos(surface_tilt) * cos(solar_zenith) +  sin(surface_tilt) * sin(solar_zenith) * cos(solar_azimuth - surface_azimuth). *)
-(*sunZenith is used instead of sun height. *)
+(*Note that sunZenith is used instead of sun height. *)
 (*Array orientation and sun azimuth can be measured with reference to North or South, as long as it is consistent. *)
 (*AOI > 90 can be encountered, meaning sunlight comes from back of the module. *)
 
 
-AngleOfIncidence[tilt_,orientation_,sunZenith_,sunAzimuth_]:=Module[{planeNormal,sunLight,projection,aoi},
+AoiProjection[tilt_,orientation_,sunZenith_,sunAzimuth_]:=Module[{planeNormal,sunLight,projection},
 planeNormal={Sin[tilt \[Degree]]*Sin[orientation \[Degree]],Sin[tilt \[Degree]]*Cos[orientation \[Degree]],Cos[tilt \[Degree]]}; (* unit vector for plane normal *)
 sunLight={Sin[sunZenith \[Degree]]*Sin[sunAzimuth \[Degree]],Sin[sunZenith \[Degree]]*Cos[sunAzimuth \[Degree]],Cos[sunZenith \[Degree]]}; (* unit vector for sun light *)
 
 projection=planeNormal.sunLight; (* dot product of two unit vectors *)
-aoi=ArcCos[projection]/Degree//N;
 
-Return@aoi;
+Return@projection;
 ];
+
+
+AngleOfIncidence[tilt_,orientation_,sunZenith_,sunAzimuth_]:=ArcCos@AoiProjection[tilt,orientation,sunZenith,sunAzimuth]/Degree//N;
 
 
 (* ::Chapter:: *)
 (*PV system related calculations*)
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Misc KPIs*)
 
 
@@ -962,6 +1007,9 @@ VoltageRatio[V_,Voc_,Gpoa_,Tmod_,Ns_,tempCoeff_:-0.003,n_:1]:={V/Voc,V/(Voc+Voc*
 
 
 CurrentRatio[current_,Isc_,Gpoa_,Tmod_,tempCoeff_:0.0005]:={current/Isc,current/(Gpoa/1000*(Isc+Isc*tempCoeff*(Tmod-298.15)))};
+
+
+CurrentRatio[current_,Isc_,Gpoa_]:={current/Isc,current/(Gpoa/1000*Isc)}; (* simplified without temperature correction *)
 
 
 (* ::Section::Closed:: *)
@@ -1054,7 +1102,7 @@ Return[faultData]
 (*Analytical monitoring*)
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Time series inspection*)
 
 
@@ -1261,8 +1309,41 @@ Return[{outputData,plots}];
 ];
 
 
-TimeSeriesSummary[tsOutput_]:=With[{merged=MergeData[tsOutput//Values,"Fast"]},
+(* ::Text:: *)
+(*TimeSeriesSummary produces a table summarizing the total and mean of each time period. *)
+(*Input is the OutputData from TimeSeriesInspection. *)
+
+
+TimeSeriesSummary[tsOutput_Association]:=With[{merged=MergeData[tsOutput//Values,"Fast"]},
 Grid[Append[Append[Prepend[ReduceDateObject[merged],Prepend[Keys@tsOutput,""]],Prepend[Rest@Total@merged,"total"]],Prepend[Rest@Mean@merged,"mean"]],Frame->All]];
+
+
+(* ::Text:: *)
+(*TimeSeriesInspect crops out and plots the part of data within specified time window. *)
+(*Type of input data can be Dataset, Temporal data, tables with pure timestamp-value(s) pairs, or tables with title rows. *)
+(*Time window can be specified as {y,m,d,h,m,s}, or DateObject. *)
+(*Options can be specified to DateListPlot. *)
+
+
+TimeSeriesInspect[data_,start_,end_,opt:OptionsPattern[]]:=Module[{ts,titles,croppedTS,plots},
+(* define time series *)
+If[Head@data===TemporalData,
+	ts=data;
+,(*else*)
+	ts=ToTemporalData@data;
+];
+
+titles=Which[
+	Head@data===Dataset,
+		Rest@Normal@Keys@First@data,
+	Head@data===List,
+		With[{t=FirstCase[data,{__String}]},If[MissingQ@t,Rest[Range@Dimensions[data][[2]]-1],Rest@t]]
+	];
+croppedTS=TimeSeriesWindow[ts,{start,end}];
+plots=MapThread[DateListPlot[#1,PlotLabel->#2,opt]&,{croppedTS["DatePaths"],titles}];
+
+Return@{croppedTS,plots};
+];
 
 
 (* ::Section::Closed:: *)
