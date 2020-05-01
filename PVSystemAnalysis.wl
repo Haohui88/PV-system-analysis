@@ -30,12 +30,12 @@ BeginPackage["PVSystemAnalysis`"];
 
 
 If[ Not@ValueQ[ReduceDateObject::usage],
-ReduceDateObject::usage = "Quick conversion of DateObject back to string."]
-
-Options[ReduceDateObject]={"DateFormat"->Automatic};
+ReduceDateObject::usage = "ReduceDateObject[dataset_,dateFormat_:{Month,/,Day,/,Year, ,Hour,:,Minute},position_:1] does quick conversion of DateObject back to string according to specified dateFormat. "]
 
 If[ Not@ValueQ[ConvertDateObject::usage],
 ConvertDateObject::usage = "Quick conversion of DateObject to show in a specified timezone."]
+
+Options[ConvertDateObject]={"DateFormat"->Automatic};
 
 If[ Not@ValueQ[ToDataset::usage],
 ToDataset::usage = "Quick conversion of a table to a dataset."]
@@ -51,6 +51,9 @@ FromTemporalData::usage = "Quick conversion from a temporal data object to extra
 
 If[ Not@ValueQ[MultiImport::usage],
 MultiImport::usage = "Import multiple files at the same time."]
+
+If[ Not@ValueQ[Glimpse::usage],
+Glimpse::usage = "quick look at data dimension and first few rows."]
 
 If[ Not@ValueQ[MergeData::usage],
 MergeData::usage = "This function merges multiple datasets with a common key (e.g. timestamp). "]
@@ -88,13 +91,13 @@ Options[PeriodWeightedAvg]={MinDataPts->60,ReportPeriod->"Day"};
 If[ Not@ValueQ[PeriodStats::usage],
 PeriodStats::usage = "PeriodStats[data,start_time,end_time] calculates the stats within each running time window as defined by the option \"function\" (one of following: fnAvg, fnCount, fnCountValid, fnSum, fnWgtAvg)."]
 
-Options[PeriodStats]={TimeStep->Quantity[1,"Days"],function->fnAvg,windowAlignment->Left,windowPadding->None,weightPosition->Null};
+Options[PeriodStats]={TimeStep->Quantity[1,"Days"],function->fnAvg,windowAlignment->Left,windowPadding->None,weightPosition->Null,"TimeZone"->$TimeZone};
 
 If[ Not@ValueQ[GetNASAPowerData::usage],
 GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location."]
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Plotting related*)
 
 
@@ -125,7 +128,7 @@ If[ Not@ValueQ[FigureAlbum::usage],
 FigureAlbum::usage = "Inspect a set of plots."]
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Solar related*)
 
 
@@ -135,7 +138,7 @@ DayLength::usage = "DayLength[Julian day,latitude] calculates day length in numb
 If[ Not@ValueQ[RemoveNightTime::usage],
 RemoveNightTime::usage = "Remove data points corresponding to night time. At the same time converting timestamps to DateObjects. "]
 
-Options[RemoveNightTime]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},Location->$GeoLocation};
+Options[RemoveNightTime]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},Location->$GeoLocation,"TimeZone"->Null};
 
 If[ Not@ValueQ[ArrayPitch::usage],
 ArrayPitch::usage = "ArrayPitch[tilt, width, \[Theta]limit] calculates the required pitch given array tilt, collector width, and desired shading limit angle."]
@@ -162,7 +165,10 @@ If[ Not@ValueQ[PRcorrW::usage],
 PRcorrW::usage = "PRcorrW[power,ratedPower,irradiance,T,Tc,avgT] calculates the temperature corrected performance ratio."]
 
 If[ Not@ValueQ[VoltageRatio::usage],
-VoltageRatio::usage = "VoltageRatio calculates the ratio of actual voltage to Voc (STC and expected)."]
+VoltageRatio::usage = "VoltageRatio calculates the ratio of actual voltage to Voc (STC and expected) with simple temperature and irradiance correction."]
+
+If[ Not@ValueQ[VoltageRatio2::usage],
+VoltageRatio2::usage = "VoltageRatio2 calculates the ratio of actual voltage to Voc (STC and expected) without irradiance correction."]
 
 If[ Not@ValueQ[CurrentRatio::usage],
 CurrentRatio::usage = "CurrentRatio calculates the ratio of actual current to Isc (STC and expected)."]
@@ -231,24 +237,31 @@ h=6.626*10^-34;
 (*DateObject handling*)
 
 
-ReduceDateObject[dataset_,position_:1,opt:OptionsPattern[]]:=Module[{reducedOutput,format},
-format=OptionValue["DateFormat"];
+ReduceDateObject[dataset_,dateFormat_:{"Month","/","Day","/","Year"," ","Hour",":","Minute"},position_:1]:=Block[{reducedOutput,$DateStringFormat=dateFormat},
 
-If[format==="DateList",
-	reducedOutput=Parallelize@Map[MapAt[DateList,#,position]&,dataset];
+If[dateFormat==="DateList",
+	reducedOutput=Map[MapAt[DateList,#,position]&,dataset];
 ,
-	If[format===Automatic,
-		reducedOutput=Parallelize@Map[MapAt[DateString,#,position]&,dataset];
-		,
-		reducedOutput=Parallelize@Map[MapAt[DateString[#,format]&,#,position]&,dataset];
-	];
+	reducedOutput=Map[MapAt[DateString,#,position]&,dataset];
 ];
 
 Return[reducedOutput]
 ];
 
 
-ConvertDateObject[dataset_,timezone_,position_:1]:=Map[MapAt[DateObject[#,TimeZone->timezone]&,#,position]&,dataset];
+ConvertDateObject[dataset_,timezone_:$TimeZone,position_:1,opt:OptionsPattern[]]:=Module[{output,format,convertFn},
+format=OptionValue["DateFormat"];
+
+If[format===Automatic,
+	convertFn=DateObject[#,TimeZone->timezone]&;
+	,
+	convertFn=DateObject[DateList[{#,format}],TimeZone->timezone]&;
+];
+
+output=Map[MapAt[convertFn,#,position]&,dataset];
+
+Return@output;
+];
 
 
 (* ::Subsection::Closed:: *)
@@ -335,6 +348,16 @@ output=Import[#,format]&/@files;
 output=Flatten[output,1];
 
 Return[output]
+];
+
+
+(* ::Subsection::Closed:: *)
+(*Quick glimpse of imported data*)
+
+
+Glimpse[data_,rowsToShow_:10]:=Block[{},
+	Print@Dimensions@data;
+	Print@TableForm@Prepend[Take[data,rowsToShow],Range@Dimensions[data][[2]]];
 ];
 
 
@@ -636,9 +659,10 @@ Return[SortBy[periodResults,First]]
 (*	weighted average for the weighting data should not be used.*)
 (*No minimum data point requirement is defined, results will not be Missing as long as there is data. *)
 (*Make sure timestamp is contained in the first column and preferably in DateObject format to avoid ambiguous interpretation when converting to TimeSeries object. *)
+(*PeriodStats conserves true time but may not output the DateObject in the original time zone unless the correct time zone is specified (to avoid error, numerical offset will always be used internally for timezone specifications). *)
 
 
-PeriodStats[data_,start_:Automatic,end_:Automatic,opt:OptionsPattern[]]:=Module[{fn,tstep,wdAlignment,padding,ts=Null,startTime,endTime,dataDimension,wgtPos,output="No result"},
+PeriodStats[data_,start_:Automatic,end_:Automatic,opt:OptionsPattern[]]:=Block[{$TimeZone=TimeZoneOffset@OptionValue["TimeZone"],fn,tstep,wdAlignment,padding,ts=Null,startTime,endTime,dataDimension,wgtPos,output="No result"},
 fn=OptionValue[function];
 tstep=OptionValue[TimeStep];
 wdAlignment=OptionValue[windowAlignment];
@@ -761,7 +785,7 @@ Return[output]
 (*Plotting related*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Customized plot types*)
 
 
@@ -787,20 +811,26 @@ gticks=(MapAt[Function[r,Rescale[r,grange,frange]],#,{1}]&/@Last[Ticks/.Absolute
 Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Auxiliary*)
 
 
 (* ::Text:: *)
 (*Labels the selected columns (specified by positions) in a certain color. *)
 (*Logic should be specified as a function or pure function that applies to the entire row. *)
-(*Positions should be specified in a format compatible with position specification in MapAt. *)
+(*Positions should be specified in a format compatible with position specification in MapAt. By default, will highlight column 2 to end. *)
 
 
 HighlightData[data_,logic_,positions_:"default",color_:Red]:=Module[{highlightPos,output},
+
+Which[Length@Dimensions@data==2,
 If[positions==="default",highlightPos=Rest[List/@Range@Last@Dimensions@data];,highlightPos=positions;];
 
-output=If[logic@#,MapAt[Style[#,color]&,#,highlightPos],#]&/@data;
+output=If[Check[logic@#,False],MapAt[Style[#,color]&,#,highlightPos],#]&/@data;
+,
+Length@Dimensions@data==1,
+output=If[Check[logic@#,False],Style[#,color],#]&/@data;
+];
 
 Return@output;
 ];
@@ -866,31 +896,32 @@ Return[Re@dayLength];
 
 
 (* ::Text:: *)
-(*Works with tables or datasets. *)
+(*Works with tables or datasets with first column as the timestamps. *)
 (*Automatically converts timestamp to DateObject if the timestamp is in string format, DateFormat specifies the format. *)
 (*Make sure timestamp of input data is in local timezone of the site but not of the local computer doing the evaluation. *)
+(*As all timestamps will be converted to DateList which preserves the form but not the true time, time zone of the input timestamps must be specified explicitly or by location (note that local time zone for a location may sometimes not be the intended time zone in the input data timestamps due to daylight saving time confusion, e.g. LocalTimeZone for Denver is MDT but timestamps in Denver are also commonly specified in MST). If time zone is not explicitly specified, local time zone of the location is assumed. If input data timestamp is in string format, it must be denoted in the intended and specified timezone. If input data timestamp is a DateObject, it can be denoted in any time zone, true time will be preserved. However, it is still advisable to specify target timezone as the local time zone of the intended location (at least not to far from it), otherwise may confuse and get Sunrise or Sunset time in the wrong day (in case where input data timestamp is on the other half of the globe as the intended location of which sunrise and sunset time is determined). *)
 
 
-RemoveNightTime[dataIn_,opt:OptionsPattern[]]:=Module[{location,timezone,dateFormat,data,convertTime,groupedData,sunrise,sunset,dailySet,output},
-location=OptionValue[Location];
-timezone=LocalTimeZone@location;
+RemoveNightTime[dataIn_,opt:OptionsPattern[]]:=Module[{location=OptionValue[Location],timezone=OptionValue["TimeZone"],dateFormat,data,convertTime,groupedData,sunrise,sunset,dailySet,output},
+If[timezone===Null,timezone=LocalTimeZone@location;]; (* this is the working time zone of all the timestamps in the input and output dataset and within this function *)
 dateFormat=OptionValue["DateFormat"];
 
 data=If[Head@dataIn===Dataset,Normal@Values@dataIn,dataIn];
 
 (*convert timestamps to DateLists, and group the dataset by days*)
 convertTime=MapAt[
-	If[
-		Head@#===String,Check[DateList@{#,dateFormat},Check[DateList@#,{0,0,0}]]
+	If[Head@#===String,
+		Check[DateList@{#,dateFormat},Check[DateList@#,{0,0,0}]] (* if dateFormat doesn't work, try directly applying DateList, if still doesn't work, discard that timestamp *)
 		,
 		DateList[#,TimeZone->timezone]]&
-,1];
+	,1];
 groupedData=GroupBy[convertTime/@data,First[#][[1;;3]]&];
 
 output={};
 
 Do[
-sunrise=Sunrise[location,DateObject[day,TimeZone->timezone]]//DateObject[#,"Instant",TimeZone->timezone]&; (*function Sunrise and Sunset gives DateObject with "Minute" granularity after version 12, need to convert to "Instant" in order to compare with timestamps in the dataset*)
+sunrise=Sunrise[location,DateObject[day,TimeZone->timezone]]//DateObject[#,"Instant",TimeZone->timezone]&; 
+(*function Sunrise and Sunset gives DateObject with "Minute" granularity after version 12, need to convert to "Instant" in order to compare with timestamps in the dataset*)
 sunset=Sunset[location,DateObject[day,TimeZone->timezone]]//DateObject[#,"Instant",TimeZone->timezone]&;
 dailySet=MapAt[DateObject[#,"Instant",TimeZone->timezone]&,1]/@groupedData[day];
 AppendTo[output,Select[dailySet,sunrise<First@#<sunset&]]
@@ -995,21 +1026,33 @@ PRcorrW[power_,ratedPower_,irradiance_?NonPositive,sT_,sTC_,avgT_]:="NA";
 
 (* ::Text:: *)
 (*VoltageRatio returns a simple ratio to Voc at STC, and a ratio to expected Voc under a certain operating condition. *)
-(*Dependence of Voc on irradiance is based on the following equation: *)
-(*Subscript[V, oc] = (Subscript[nN, s]kT)/q ln(Subscript[I, sc]/Subscript[I, 0]) = (Subscript[nN, s]kT)/q ln(Subscript[I, sc,STC]/Subscript[I, 0] G/1000) =  Subscript[V, oc,T] + (Subscript[nN, s]kT)/q ln((G/1000))*)
+(*Dependence of Voc on irradiance is based on the following equation (assuming a simple one-diode model): *)
+(*Voc = (n Ns kT) / (q ln(Isc/I0)) *)
+(*= (n Ns kT) / (q ln(Isc,stc / I0 * G/1000)) *)
+(*=  Voc,T + (n Ns kT) / (q ln(G/1000))*)
+(*Ns is number of cells (not modules) in series in a string, which is important to specify in order to correctly estimate irradiance dependence. *)
+(*n is the ideality factor in the diode model of the solar cell. *)
+(*Temperature coefficient is for Voc. *)
 
 
-VoltageRatio[V_,Voc_,Gpoa_,Tmod_,Ns_,tempCoeff_:-0.003,n_:1]:={V/Voc,V/(Voc+Voc*tempCoeff*(Tmod-298.15)+k*Tmod*Ns*n/q*Log[Gpoa/1000])};
+VoltageRatio[V_,Voc_,Gpoa_?Positive,Tmod_,Ns_,tempCoeff_:-0.003,n_:1]:={V/Voc,V/(Voc+Voc*tempCoeff*(Tmod-298.15)+k*Tmod*Ns*n/q*Log[Gpoa/1000])};
+VoltageRatio[V_,Voc_,Gpoa_?NonPositive,Tmod_,Ns_,tempCoeff_:-0.003,n_:1]:={0,0};
+
+
+VoltageRatio2[V_,Voc_,Gpoa_?Positive,Tmod_,tempCoeff_:-0.003]:={V/Voc,V/(Voc+Voc*tempCoeff*(Tmod-298.15))}; (* simplified without irradiance correction *)
+VoltageRatio2[V_,Voc_,Gpoa_?NonPositive,Tmod_,tempCoeff_:-0.003]:={0,0};
 
 
 (* ::Text:: *)
 (*CurrentRatio returns a simple ratio to Isc, and a ratio to expected Isc under a certain operating condition. *)
 
 
-CurrentRatio[current_,Isc_,Gpoa_,Tmod_,tempCoeff_:0.0005]:={current/Isc,current/(Gpoa/1000*(Isc+Isc*tempCoeff*(Tmod-298.15)))};
+CurrentRatio[current_,Isc_,Gpoa_?Positive,Tmod_,tempCoeff_:0.0005]:={current/Isc,current/(Gpoa/1000*(Isc+Isc*tempCoeff*(Tmod-298.15)))};
+CurrentRatio[current_,Isc_,Gpoa_?NonPositive,Tmod_,tempCoeff_:0.0005]:={0,0};
 
 
-CurrentRatio[current_,Isc_,Gpoa_]:={current/Isc,current/(Gpoa/1000*Isc)}; (* simplified without temperature correction *)
+CurrentRatio[current_,Isc_,Gpoa_?Positive]:={current/Isc,current/(Gpoa/1000*Isc)}; (* simplified without temperature correction *)
+CurrentRatio[current_,Isc_,Gpoa_?NonPositive]:={0,0};
 
 
 (* ::Section::Closed:: *)
@@ -1055,12 +1098,13 @@ Return[loss]
 ];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Thermal models*)
 
 
 (* ::Text:: *)
-(*Temperature coefficient tCoeff should be around negative and in relative percentage of STC, around -0.003 ~ -0.004. *)
+(*Temperature coefficient tCoeff is for Pmpp, should be around negative and in relative percentage of STC, around -0.003 ~ -0.004. *)
+(*module efficiency is around 0.15~0.25 for Si technologies. *)
 
 
 ModuleTemperature[airT_,irrLv_,tCoeff_,\[Eta]0_,uL_:29]:=Module[{\[Eta]c,Tmod,t,\[Tau],\[Alpha]},
@@ -1068,7 +1112,7 @@ ModuleTemperature[airT_,irrLv_,tCoeff_,\[Eta]0_,uL_:29]:=Module[{\[Eta]c,Tmod,t,
 \[Alpha]=0.8; (* fraction of solar spectrum absorbed *)
 
 \[Eta]c[T_]:=\[Eta]0+tCoeff*(T-airT)*\[Eta]0;
-Tmod=t/.(FindRoot[t==airT+irrLv*((\[Tau]*\[Alpha])/uL)*(1-\[Eta]c[t]/(\[Tau]*\[Alpha])),{t,airT+10}]);
+Tmod=Quiet@Check[t/.(FindRoot[t==airT+irrLv*((\[Tau]*\[Alpha])/uL)*(1-\[Eta]c[t]/(\[Tau]*\[Alpha])),{t,airT+10}]),airT+10]; (* always returns a value, if cannot find the root, simply return Tamb+10 *)
 Return[Tmod]
 ];
 
@@ -1102,7 +1146,7 @@ Return[faultData]
 (*Analytical monitoring*)
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Time series inspection*)
 
 
