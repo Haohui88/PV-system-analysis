@@ -33,15 +33,16 @@ If[ Not@ValueQ[ReduceDateObject::usage],
 ReduceDateObject::usage = "ReduceDateObject[dataset_,dateFormat_:{Month,/,Day,/,Year, ,Hour,:,Minute},position_:1] does quick conversion of DateObject back to string according to specified dateFormat. "]
 
 If[ Not@ValueQ[ConvertDateObject::usage],
-ConvertDateObject::usage = "Quick conversion of DateObject to show in a specified timezone."]
-
-Options[ConvertDateObject]={"DateFormat"->Automatic};
+ConvertDateObject::usage = "ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1] does quick conversion of DateObject to show in a specified timezone."]
 
 If[ Not@ValueQ[ToDataset::usage],
 ToDataset::usage = "Quick conversion of a table to a dataset."]
 
 If[ Not@ValueQ[FromDataset::usage],
 FromDataset::usage = "Quick conversion of a dataset to a table."]
+
+If[ Not@ValueQ[AddIndex::usage],
+FromDataset::usage = "AddIndex[dataset,index:1] adds index to a flat dataset. "]
 
 If[ Not@ValueQ[ToTemporalData::usage],
 ToTemporalData::usage = "Quick conversion to a temporal data object."]
@@ -249,13 +250,12 @@ Return[reducedOutput]
 ];
 
 
-ConvertDateObject[dataset_,timezone_:$TimeZone,position_:1,opt:OptionsPattern[]]:=Module[{output,format,convertFn},
-format=OptionValue["DateFormat"];
+ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1]:=Module[{output,convertFn},
 
-If[format===Automatic,
+If[dateFormat===Automatic,
 	convertFn=DateObject[#,TimeZone->timezone]&;
 	,
-	convertFn=DateObject[DateList[{#,format}],TimeZone->timezone]&;
+	convertFn=DateObject[DateList[{#,dateFormat}],TimeZone->timezone]&;
 ];
 
 output=Map[MapAt[convertFn,#,position]&,dataset];
@@ -264,27 +264,26 @@ Return@output;
 ];
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Convert to and from dataset object*)
 
 
 (* ::Text:: *)
 (*Convert a flat table to Dataset (DataFrame) object assuming first row as titles (column names). *)
+(*When table does not contain column names, the title row can be supplied as the second argument. *)
+(*Index can be specified, in which case should be given as an integer indicating which column is used as index. *)
 
 
-ToDataset[table_]:=Module[{dataset},
-dataset=AssociationThread[First@table->#]&/@Rest[table]//Dataset;
-
-Return[dataset]
+ToDataset[table_List,titles_:"Default",index_:None]:=Module[{dataset},
+If[titles==="Default",
+	dataset=AssociationThread[First@table->#]&/@Rest[table]//Dataset;
+,
+	dataset=AssociationThread[titles->#]&/@table//Dataset;
 ];
 
-
-(* ::Text:: *)
-(*When table does not contain column names, the title row can be supplied as the second argument. *)
-
-
-ToDataset[table_,titles_]:=Module[{dataset},
-dataset=AssociationThread[titles->#]&/@table//Dataset;
+If[index=!=None&&IntegerQ@index,
+	dataset=dataset[All,#[[index]]->Drop[#,{index}]&]//Normal//Association//Dataset;
+];
 
 Return[dataset]
 ];
@@ -294,7 +293,18 @@ Return[dataset]
 (*Convert back to a table with column names. *)
 
 
-FromDataset[dataset_]:=Prepend[Normal@Values@dataset,Normal@Keys@First@dataset];
+FromDataset[dataset_Dataset,showHeader_:False]:=If[ArrayDepth@dataset==1,
+	If[showHeader,Prepend[Normal@Values@dataset,Normal@Keys@First@dataset],Normal@Values@dataset]
+, (* else, array depth is 2 *)
+	If[showHeader,Prepend[KeyValueMap[List/*Flatten,Values/@Normal@dataset],Prepend[Keys@First@test,"index"]],KeyValueMap[List/*Flatten,Values/@Normal@dataset]]
+];
+
+
+(* ::Text:: *)
+(*Add index to a flat dataset. *)
+
+
+AddIndex[dataset_Dataset,index_:1]:=dataset[All,#[[index]]->Drop[#,{index}]&]//Normal//Association//Dataset;
 
 
 (* ::Subsection::Closed:: *)
@@ -361,7 +371,7 @@ Glimpse[data_,rowsToShow_:10]:=Block[{},
 ];
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Merge data*)
 
 
@@ -391,7 +401,7 @@ If[MatchQ[data,{__Dataset}], (*if input data is Dataset objects, reduce to assoc
 	, (*else, when there is no Header line*)
 		(*assign a unique index (as string) to each column in the format of table#-column#, except the column# of the KeyPosition, which will remain as it is*)
 		toAssoc[table_,tableNumber_]:=With[
-		{index=If[Length@Dimensions@table>1,
+		{index=If[ArrayDepth@table>1,
 			ReplacePart[ToString@tableNumber<>"-"<>ToString[#]&/@Range@Dimensions[table][[2]],keyIndex->ToString@keyIndex]
 			, (*else*)
 			ToString@keyIndex]},
@@ -659,7 +669,8 @@ Return[SortBy[periodResults,First]]
 (*	weighted average for the weighting data should not be used.*)
 (*No minimum data point requirement is defined, results will not be Missing as long as there is data. *)
 (*Make sure timestamp is contained in the first column and preferably in DateObject format to avoid ambiguous interpretation when converting to TimeSeries object. *)
-(*PeriodStats conserves true time but may not output the DateObject in the original time zone unless the correct time zone is specified (to avoid error, numerical offset will always be used internally for timezone specifications). *)
+(*PeriodStats conserves true time but may not output the DateObject in the original time zone unless the correct time zone is specified (to avoid error of not supported by TimeSeries functions, numerical offset will always be used internally for timezone specifications). *)
+(*PeriodStats reorders unsorted data into one sorted by timestamp. *)
 
 
 PeriodStats[data_,start_:Automatic,end_:Automatic,opt:OptionsPattern[]]:=Block[{$TimeZone=TimeZoneOffset@OptionValue["TimeZone"],fn,tstep,wdAlignment,padding,ts=Null,startTime,endTime,dataDimension,wgtPos,output="No result"},
@@ -781,11 +792,11 @@ Return[output]
 
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Plotting related*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Customized plot types*)
 
 
@@ -811,7 +822,22 @@ gticks=(MapAt[Function[r,Rescale[r,grange,frange]],#,{1}]&/@Last[Ticks/.Absolute
 Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];
 
 
-(* ::Subsection::Closed:: *)
+(* ::Text:: *)
+(*(under construction)*)
+
+
+ListDatePlot[data_,options_:Options[ListPlot]]:=Module[{absTime},
+
+If[ArrayDepth@data==3,
+	absTime=Map[MapAt[AbsoluteTime,#,1]&,#,{2}]&;
+,
+	absTime=Map[MapAt[AbsoluteTime,#,1]&,#]&;
+];
+
+];
+
+
+(* ::Subsection:: *)
 (*Auxiliary*)
 
 
@@ -819,16 +845,17 @@ Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[grap
 (*Labels the selected columns (specified by positions) in a certain color. *)
 (*Logic should be specified as a function or pure function that applies to the entire row. *)
 (*Positions should be specified in a format compatible with position specification in MapAt. By default, will highlight column 2 to end. *)
+(*Color can be specified in the form of pure function. *)
 
 
 HighlightData[data_,logic_,positions_:"default",color_:Red]:=Module[{highlightPos,output},
 
-Which[Length@Dimensions@data==2,
+Which[ArrayDepth@data==2,
 If[positions==="default",highlightPos=Rest[List/@Range@Last@Dimensions@data];,highlightPos=positions;];
 
-output=If[Check[logic@#,False],MapAt[Style[#,color]&,#,highlightPos],#]&/@data;
+output=If[Check[logic@#,False],With[{color2=If[Head@color===Function,color@#,color]},MapAt[Style[#,color2]&,#,highlightPos]],#]&/@data;
 ,
-Length@Dimensions@data==1,
+ArrayDepth@data==1,
 output=If[Check[logic@#,False],Style[#,color],#]&/@data;
 ];
 
@@ -1146,7 +1173,7 @@ Return[faultData]
 (*Analytical monitoring*)
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Time series inspection*)
 
 
@@ -1387,6 +1414,37 @@ croppedTS=TimeSeriesWindow[ts,{start,end}];
 plots=MapThread[DateListPlot[#1,PlotLabel->#2,opt]&,{croppedTS["DatePaths"],titles}];
 
 Return@{croppedTS,plots};
+];
+
+
+TimeSeriesAlbum[dataIn_,groupBy_:{"Year","Month","Day"}]:=Module[{self=<||>,data,columnNames,groupData,index,timestampPos},
+
+Which[
+Head@dataIn===Dataset,
+	columnNames=Normal@Keys@First@dataIn;
+	data=Normal@Values@dataIn;
+,
+Head@dataIn===List&&ArrayDepth@dataIn==2,
+	(* assumes first pure string row is header, if not, assume timestamp position at first column *)
+	columnNames=With[{t=FirstCase[data,{__String}]},If[MissingQ@t,Prepend[StringJoin["column",#]&/@ToString/@Rest[Range@Dimensions[data][[2]]-1],"timestamp"],t]];
+	data=dataIn;
+,
+True,
+	Print@"input data error";
+	Abort[];
+	];
+
+index=AssociationThread[columnNames->Range@Length@columnNames];
+timestampPos=Quiet@Check[index@"timestamp",Quiet@Check[index@"time",1]];
+groupData=GroupBy[data,DateValue[#[[timestampPos]],groupBy]&];
+
+(*AppendTo[self,"grouped_data"\[Rule]groupData];*)
+AppendTo[self,"bins"->Keys@groupData];
+AppendTo[self,"columns"->columnNames];
+AppendTo[self,"plot":>(DateListPlot[groupData[#1][[All,{timestampPos,index@#2}]],FrameLabel->{None,#2}]&)];
+AppendTo[self,"album":>Manipulate[self["plot"][bins,column],{bins,self["bins"]},{column,Drop[self["columns"],{timestampPos}]}]];
+
+Return@self;
 ];
 
 
