@@ -16,7 +16,7 @@
 
 (* :Package Version: master_main *)
 
-(* :Mathematica Version: 12.0 *)
+(* :Mathematica Version during inception: 12.0 *)
 
 (*:Summary:
 	Provide functions to faciliate analysis of PV performance data.
@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*General functions*)
 
 
@@ -33,7 +33,8 @@ If[ Not@ValueQ[ReduceDateObject::usage],
 ReduceDateObject::usage = "ReduceDateObject[dataset_,dateFormat_:{Month,/,Day,/,Year, ,Hour,:,Minute},position_:1] does quick conversion of DateObject back to string according to specified dateFormat. "]
 
 If[ Not@ValueQ[ConvertDateObject::usage],
-ConvertDateObject::usage = "ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1] does quick conversion of DateObject to show in a specified timezone."]
+ConvertDateObject::usage = "ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1] does quick conversion of DateObject to show in a specified timezone. 
+Note: timezone default is set to machine local timezone (not dynamic). "]
 
 If[ Not@ValueQ[ToDataset::usage],
 ToDataset::usage = "Quick conversion of a table to a dataset."]
@@ -42,13 +43,36 @@ If[ Not@ValueQ[FromDataset::usage],
 FromDataset::usage = "Quick conversion of a dataset to a table."]
 
 If[ Not@ValueQ[AddIndex::usage],
-FromDataset::usage = "AddIndex[dataset,index:1] adds index to a flat dataset. "]
+AddIndex::usage = "AddIndex[dataset,index:0] adds index to a flat dataset by converting the n^th column specified by 'index' (0 means natural indexing). Note that duplicate values will be overwritten if any column is used as index. "]
+
+If[ Not@ValueQ[DropIndex::usage],
+DropIndex::usage = "Remove index into flat dataset. "]
+
+If[ Not@ValueQ[DatasetColumns::usage],
+DatasetColumns::usage = "Gives the column names of a flat dataset. "]
+
+If[ Not@ValueQ[DatasetIndices::usage],
+DatasetIndices::usage = "Gives the indices of a row indexed dataset. "]
+
+If[ Not@ValueQ[RenameColumn::usage],
+RenameColumn::usage = "RenameColumn[replaceRules][dataset] replaces column names with a list of rules. "]
 
 If[ Not@ValueQ[ToTemporalData::usage],
 ToTemporalData::usage = "Quick conversion to a temporal data object."]
 
 If[ Not@ValueQ[FromTemporalData::usage],
 FromTemporalData::usage = "Quick conversion from a temporal data object to extract paths."]
+
+If[ Not@ValueQ[RegularizeTimeSeries::usage],
+RegularizeTimeSeries::usage = "RegularizeTimeSeries[data, resampleMethod,timesteps] makes the timestamp spacing uniform by filling in missing timestamps.
+Assumes data is regular shaped table. Timestamps must be DateObject. 
+Timestep specification can be any of the forms accepted by TimeSeriesResample. "]
+
+If[ Not@ValueQ[take::usage],
+take::usage = "Operator form of function Take."]
+
+If[ Not@ValueQ[TestArray::usage],
+TestArray::usage = "TestArray[row_,col_] generates a row by col position numbered test array."]
 
 If[ Not@ValueQ[MultiImport::usage],
 MultiImport::usage = "Import multiple files at the same time."]
@@ -180,7 +204,7 @@ CablingLoss::usage = "CablingLoss[current,cableLength,crossSection] calculates t
 Options[CablingLoss]={"NumLineCoeff"->1,"LengthCableFactor"->2,"Resistivity"->0.023};
 
 If[ Not@ValueQ[ModuleTemperature::usage],
-ModuleTemperature::usage = "ModuleTemperature[airT, irradiance, Tc, \[Eta]stc, U-value (default 29)] estimates the PV module temperature based on simple heat balance model (Faiman 2008)."]
+ModuleTemperature::usage = "ModuleTemperature[airT (in \[Degree]C), irradiance, Tc (default -0.003), \[Eta]stc (default 0.2), U-value (default 29)] estimates the PV module temperature based on simple heat balance model (Faiman 2008). "]
 
 If[ Not@ValueQ[SimpleFaultDetect::usage],
 SimpleFaultDetect::usage = "SimpleFaultDetect[listGVIP,listPR,listIratio,listVratio] detects and highlights obvious faults."]
@@ -197,10 +221,22 @@ TimeSeriesSummary::usage = "Quick summary table of outputs from TimeSeriesInspec
 If[ Not@ValueQ[TimeSeriesInspect::usage],
 TimeSeriesInspect::usage = "TimeSeriesInspect[data,start,end,plot options] returns {cropped timeseries, DateListPlots for each column}. "]
 
+If[ Not@ValueQ[TimeSeriesAlbum::usage],
+TimeSeriesAlbum::usage = "TimeSeriesAlbum[dataIn,groupBy:{Year,Month,Day},plotOptions] gives an object containing data slices and their plots for each column. 
+Object contains four elements: 
+\"bins\" gives keys for time slices; 
+\"columns\" gives columns (parameters); 
+\"data\" gives a pure function with one argument call (bin) and returns data in that bin;
+\"plot\" gives a pure function with two argument calls: DateListPlot[bin,column]; 
+\"album\" is interactive exploration of data. "]
+
 If[ Not@ValueQ[CrossSectionInspection::usage],
 CrossSectionInspection::usage = "Cross sectional inspection and plots of system performance."]
 
 Options[CrossSectionInspection]={ColumnNames->{"Gpoa","Vdc","Idc","Pdc","Tmod","Vac","Iac","Pac","Tamb"},NominalPower->Null};
+
+If[ Not@ValueQ[SpecScale::usage],
+SpecScale::usage = "SpecScale[scale_][spec_] performs simple scaling of spectrum. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. "]
 
 If[ Not@ValueQ[SpecIntensity::usage],
 SpecIntensity::usage = "This function calculates integrated intensity from a set of spectra. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. "]
@@ -264,8 +300,8 @@ Return@output;
 ];
 
 
-(* ::Subsection:: *)
-(*Convert to and from dataset object*)
+(* ::Subsection::Closed:: *)
+(*Dataset handling*)
 
 
 (* ::Text:: *)
@@ -296,7 +332,7 @@ Return[dataset]
 FromDataset[dataset_Dataset,showHeader_:False]:=If[ArrayDepth@dataset==1,
 	If[showHeader,Prepend[Normal@Values@dataset,Normal@Keys@First@dataset],Normal@Values@dataset]
 , (* else, array depth is 2 *)
-	If[showHeader,Prepend[KeyValueMap[List/*Flatten,Values/@Normal@dataset],Prepend[Keys@First@test,"index"]],KeyValueMap[List/*Flatten,Values/@Normal@dataset]]
+	If[showHeader,Prepend[KeyValueMap[List/*Flatten,Values/@Normal@dataset],Prepend[Normal@Keys@First@dataset,"index"]],KeyValueMap[List/*Flatten,Values/@Normal@dataset]]
 ];
 
 
@@ -304,7 +340,30 @@ FromDataset[dataset_Dataset,showHeader_:False]:=If[ArrayDepth@dataset==1,
 (*Add index to a flat dataset. *)
 
 
-AddIndex[dataset_Dataset,index_:1]:=dataset[All,#[[index]]->Drop[#,{index}]&]//Normal//Association//Dataset;
+AddIndex[dataset_Dataset/;ArrayDepth@dataset==1,index_:0]:=If[index==0,
+MapIndexed[First@#2->#1&,dataset]//Normal//Association//Dataset
+,
+dataset[All,#[[index]]->Drop[#,{index}]&]//Normal//Association//Dataset
+];
+
+
+(* ::Text:: *)
+(*Remove index into flat dataset.*)
+
+
+DropIndex[dataset_Dataset/;ArrayDepth@dataset==2,index_:0]:=dataset//Values;
+
+
+DatasetColumns[dataset_Dataset/;ArrayDepth@dataset==1]:=dataset//Normal//First//Keys;
+
+DatasetColumns[dataset_Dataset/;ArrayDepth@dataset==2]:=dataset//Values//Normal//First//Keys;
+
+
+DatasetIndices[dataset_Dataset/;ArrayDepth@dataset==2]:=dataset//Normal//Keys;
+
+
+RenameColumn[replaceRules_List][dataset_Dataset/;ArrayDepth@dataset==1]:=KeyMap[Replace[replaceRules]]/@dataset;
+RenameColumn[replaceRules_List][dataset_Dataset/;ArrayDepth@dataset==2]:=KeyMap[Replace[replaceRules]]/@DropIndex@dataset;
 
 
 (* ::Subsection::Closed:: *)
@@ -312,9 +371,9 @@ AddIndex[dataset_Dataset,index_:1]:=dataset[All,#[[index]]->Drop[#,{index}]&]//N
 
 
 (* ::Text:: *)
-(*Assumes data is regular shaped table, all share the same DateObject timestamps. *)
+(*Assumes data is regular shaped table, all have DateObject timestamps (if not, automatic conversion to DateObject will be done with system default methods, so better control the conversion beforehand). *)
 (*Type of input data can be Dataset, or tables with pure timestamp-value(s) pairs, or tables with title rows. *)
-(*Option such as Timezone can be specified. *)
+(*Option such as Timezone can be specified (note that this only changed the form appearance but not the true time of the DateObject). *)
 
 
 ToTemporalData[data_,opt:OptionsPattern[]]:=Which[
@@ -327,7 +386,7 @@ Dimensions[data][[2]]>2,
 
 
 (* ::Text:: *)
-(*Note that time is converted back into DateObject assuming local machine timezone! *)
+(*Note that time is converted back into DateObject assuming local machine timezone. *)
 
 
 FromTemporalData[ts_]:=If[
@@ -338,8 +397,35 @@ ts["PathCount"]==1,
 ];
 
 
+(* ::Subsection::Closed:: *)
+(*Regularize timestamp spacing*)
+
+
+(* ::Text:: *)
+(*Assumes data is regular shaped table. Timestamps must be DateObject. *)
+(*Timestep specification can be any of the forms accepted by TimeSeriesResample. *)
+
+
+RegularizeTimeSeries[data_/;Head@data[[1,1]]===DateObject,resampleMethod_:Automatic,timesteps_:Automatic]:=Block[{$TimeZone=data[[1,1]]["TimeZone"],ts},
+
+ts=ToTemporalData@data;
+Return@FromTemporalData@TimeSeriesResample[ts,timesteps,ResamplingMethod->resampleMethod];
+
+];
+
+
 (* ::Section:: *)
 (*Data import and manipulation*)
+
+
+(* ::Subsection::Closed:: *)
+(*User convenience*)
+
+
+take[n_]:=Take[#,n]&;
+
+
+TestArray[row_,col_]:=Array[10#1+#2&,{row,col}];
 
 
 (* ::Subsection::Closed:: *)
@@ -371,7 +457,7 @@ Glimpse[data_,rowsToShow_:10]:=Block[{},
 ];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Merge data*)
 
 
@@ -532,6 +618,10 @@ output=Import@First@fileAddress;
 Return[Cases[{output},{___,{"-END HEADER-"},x___}->x]];
 
 ];
+
+
+(* ::Subsection:: *)
+(*Pass data to Python*)
 
 
 (* ::Section::Closed:: *)
@@ -796,7 +886,7 @@ Return[output]
 (*Plotting related*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Customized plot types*)
 
 
@@ -837,7 +927,7 @@ If[ArrayDepth@data==3,
 ];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Auxiliary*)
 
 
@@ -1132,14 +1222,17 @@ Return[loss]
 (* ::Text:: *)
 (*Temperature coefficient tCoeff is for Pmpp, should be around negative and in relative percentage of STC, around -0.003 ~ -0.004. *)
 (*module efficiency is around 0.15~0.25 for Si technologies. *)
+(*Air temperature should be specified in \[Degree]C. *)
 
 
-ModuleTemperature[airT_,irrLv_,tCoeff_,\[Eta]0_,uL_:29]:=Module[{\[Eta]c,Tmod,t,\[Tau],\[Alpha]},
+ModuleTemperature[airT_,irrLv_,tCoeff_:-0.003,\[Eta]0_:0.2,uL_:29]:=Module[{\[Eta]c,Tmod,t,\[Tau],\[Alpha],TmodEst},
 \[Tau]=0.95; (* transmittance of glazing *)
 \[Alpha]=0.8; (* fraction of solar spectrum absorbed *)
 
 \[Eta]c[T_]:=\[Eta]0+tCoeff*(T-airT)*\[Eta]0;
-Tmod=Quiet@Check[t/.(FindRoot[t==airT+irrLv*((\[Tau]*\[Alpha])/uL)*(1-\[Eta]c[t]/(\[Tau]*\[Alpha])),{t,airT+10}]),airT+10]; (* always returns a value, if cannot find the root, simply return Tamb+10 *)
+TmodEst=airT+irrLv*((\[Tau]*\[Alpha])/uL)*(1-\[Eta]c[airT+10]/(\[Tau]*\[Alpha]));
+Tmod=Quiet@Check[t/.(FindRoot[t==airT+irrLv*((\[Tau]*\[Alpha])/uL)*(1-\[Eta]c[t]/(\[Tau]*\[Alpha])),{t,TmodEst}]),TmodEst]; 
+(* if cannot find the root, simply return Tmod_Estimate = Tamb+k*G *)
 Return[Tmod]
 ];
 
@@ -1193,7 +1286,7 @@ Return[faultData]
 (*Full choice of column names is: ColumnNames->{"Timestamp","G","Vdc","Idc","Pdc","Vac","Iac","Pac","cum_meter_reading", "Tmod"}. (Tmod still not implemented yet)*)
 
 
-TimeSeriesInspection[data_,opt:OptionsPattern[]]:=Module[{columns,nominalP,resolution$input,resolution$output,irradianceThreshold,colIndex,powerDC=Null,integrateYieldDC=Null,specificYieldDC=Null,powerAC=Null,integrateYieldAC=Null,specificYieldAC=Null,insolation=Null,PRdc=Null,PRac=Null,PRdcTcorr=Null,PRacTcorr=Null,cumEnergy=Null,\[Eta]inverter=Null,plotOptions,outputData=<||>,plots=<||>},
+TimeSeriesInspection[data_List?(ArrayDepth@#==2&),opt:OptionsPattern[]]:=Module[{columns,nominalP,resolution$input,resolution$output,irradianceThreshold,colIndex,powerDC=Null,integrateYieldDC=Null,specificYieldDC=Null,powerAC=Null,integrateYieldAC=Null,specificYieldAC=Null,insolation=Null,PRdc=Null,PRac=Null,PRdcTcorr=Null,PRacTcorr=Null,cumEnergy=Null,\[Eta]inverter=Null,plotOptions,outputData=<||>,plots=<||>},
 columns=OptionValue[ColumnNames];
 nominalP=OptionValue[NominalPower];
 resolution$input=OptionValue[InputResolution];
@@ -1380,6 +1473,14 @@ Return[{outputData,plots}];
 ];
 
 
+TimeSeriesInspection[data_Dataset,opt:OptionsPattern[]]:=TimeSeriesInspection[
+If[ArrayDepth@data==1,
+	data//Values//Normal,
+	data//DropIndex//Values//Normal
+],
+opt];
+
+
 (* ::Text:: *)
 (*TimeSeriesSummary produces a table summarizing the total and mean of each time period. *)
 (*Input is the OutputData from TimeSeriesInspection. *)
@@ -1417,7 +1518,7 @@ Return@{croppedTS,plots};
 ];
 
 
-TimeSeriesAlbum[dataIn_,groupBy_:{"Year","Month","Day"}]:=Module[{self=<||>,data,columnNames,groupData,index,timestampPos},
+TimeSeriesAlbum[dataIn_,groupBy_:{"Year","-","Month","-","Day"},opt:OptionsPattern[]]:=Module[{self=<||>,data,columnNames,groupData,index,timestampPos,cols},
 
 Which[
 Head@dataIn===Dataset,
@@ -1435,17 +1536,55 @@ True,
 	];
 
 index=AssociationThread[columnNames->Range@Length@columnNames];
-timestampPos=Quiet@Check[index@"timestamp",Quiet@Check[index@"time",1]];
-groupData=GroupBy[data,DateValue[#[[timestampPos]],groupBy]&];
+timestampPos=index@FirstCase[columnNames,Alternatives@@(Flatten[{Identity@#,Capitalize/@#}]&[{"timestamp", "time" , "date","data_date"}])]/._Missing->1;
+groupData=GroupBy[data,DateString[#[[timestampPos]],groupBy]&];
 
 (*AppendTo[self,"grouped_data"\[Rule]groupData];*)
 AppendTo[self,"bins"->Keys@groupData];
 AppendTo[self,"columns"->columnNames];
-AppendTo[self,"plot":>(DateListPlot[groupData[#1][[All,{timestampPos,index@#2}]],FrameLabel->{None,#2}]&)];
-AppendTo[self,"album":>Manipulate[self["plot"][bins,column],{bins,self["bins"]},{column,Drop[self["columns"],{timestampPos}]}]];
+AppendTo[self,"data":>(groupData[#1]&)];
+AppendTo[self,"plot":>(DateListPlot[groupData[#1][[All,{timestampPos,index@#2}]],FrameLabel->{None,#2},opt,ImageSize->Medium,GridLines->Automatic]&)];
+(*AppendTo[self,"album"\[RuleDelayed]Manipulate[self["plot"][bins,column],{bins,self["bins"]},{column,Drop[self["columns"],{timestampPos}]}]];*)
+AppendTo[self,"album":>
+	With[{func=self["plot"],bin=self["bins"],col=Drop[self["columns"],{timestampPos}]},
+		Manipulate[func[bins,column],
+		{{bins,First@bin,"bins"},bin},{{column,First@col,"column"},col},
+		Row@{Button["previous bin",bins=bin[[With[{p=Position[bin,bins][[1,1]]},Max[p-1,1]]]]],Button["next bin",bins=bin[[Min[Position[bin,bins][[1,1]]+1,Length@bin]]]]}
+		]
+	]
+];
+(*AppendTo[self,"album"\[RuleDelayed]
+	With[{func=self["plot"],bin=self["bins"],tpos=timestampPos},
+		Column[{
+		TogglerBar[Dynamic[cols],Drop[self["columns"],{tpos}]],
+		Manipulate[Row@Table[func[bins,c],{c,cols}],
+		{{bins,First@bin,"bins"},bin}
+		]
+		}]
+	]
+];*)
+AppendTo[self,"album_extendable":>
+	With[{func=self["plot"],bin=self["bins"],col=Drop[self["columns"],{timestampPos}]},
+		makeAlbum[func,col,bin]
+	]
+];
 
 Return@self;
 ];
+
+
+(*Off[Table::iterb];*)
+makeAlbum[func_,col_,bin_]:=
+Column[{
+	TogglerBar[Dynamic[cols],col,Appearance->"Row"],
+	Button["clear selection",cols={}];
+	Manipulate[Row@Table[func[bins,c],{c,If[Head@cols=!=List||cols==={},{First@col},cols]}],
+		{{bins,First@bin,"bins"},bin},
+		Row@{Button["previous bin",bins=bin[[With[{p=Position[bin,bins][[1,1]]},Max[p-1,1]]]]],Button["next bin",bins=bin[[Min[Position[bin,bins][[1,1]]+1,Length@bin]]]]}
+	]
+	}]
+
+
 
 
 (* ::Section::Closed:: *)
@@ -1631,6 +1770,13 @@ Return[acPlots~Join~dcPlots]
 
 (* ::Chapter::Closed:: *)
 (*Spectrum related calculations*)
+
+
+(* ::Text:: *)
+(*Simple scaling of spectra. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. *)
+
+
+SpecScale[scale_][spec_]:={First@spec}~Join~(scale*Rest@spec);
 
 
 (* ::Text:: *)
