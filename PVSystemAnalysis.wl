@@ -25,16 +25,27 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*General functions*)
 
 
-If[ Not@ValueQ[ReduceDateObject::usage],
-ReduceDateObject::usage = "ReduceDateObject[dataset_,dateFormat_:{Month,/,Day,/,Year, ,Hour,:,Minute},position_:1] does quick conversion of DateObject back to string according to specified dateFormat. "]
+(* ::Subsection::Closed:: *)
+(*General*)
 
-If[ Not@ValueQ[ConvertDateObject::usage],
-ConvertDateObject::usage = "ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1] does quick conversion of DateObject to show in a specified timezone. 
-Note: timezone default is set to machine local timezone (not dynamic). If timestamp is already in DateObject format, it will be converted to the specified timezone. "]
+
+If[ Not@ValueQ[pick::usage],
+pick::usage = "pick[condition_][x_] picks the elements from list/array x where the corresponding elements from another list/array meets a certain condition. Always wraps results in a list even when there is only one element (similar behavior to Position, Pick, ...).
+Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. "]
+
+If[ Not@ValueQ[Where::usage],
+Where::usage = "Where[condition,na (default Null)][x] sets elements from list/array x where the corresponding elements from another list/array meets a certain condition to na. 
+Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. "]
+Where::dmism="Dimension mismatch where boolean mask is `1` and target is `2`";
+
+If[ Not@ValueQ[extract::usage],
+extract::usage = "extract[x_,pattern_] gives an operator that can extract corresponding elements from another list. Unlike other functions, single results will be returned as is instead of inside a list. 
+e.g. extract[{1,2,4,5},_?(#>3&)]@{1,2,3,9} gives {3,9}"]
+
 
 If[ Not@ValueQ[ToDataset::usage],
 ToDataset::usage = "Quick conversion of a table to a dataset."]
@@ -57,6 +68,19 @@ DatasetIndices::usage = "Gives the indices of a row indexed dataset. "]
 If[ Not@ValueQ[RenameColumn::usage],
 RenameColumn::usage = "RenameColumn[replaceRules][dataset] replaces column names with a list of rules. "]
 
+
+(* ::Subsection::Closed:: *)
+(*Time related*)
+
+
+If[ Not@ValueQ[ReduceDateObject::usage],
+ReduceDateObject::usage = "ReduceDateObject[dataset_,dateFormat_:{Month,/,Day,/,Year, ,Hour,:,Minute},position_:1] does quick conversion of DateObject back to string according to specified dateFormat. "]
+
+If[ Not@ValueQ[ConvertDateObject::usage],
+ConvertDateObject::usage = "ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1] does quick conversion of DateObject to show in a specified timezone. 
+Note: timezone default is set to machine local timezone (not dynamic). If timestamp is already in DateObject format, it will be converted to the specified timezone. "]
+
+
 If[ Not@ValueQ[ToTemporalData::usage],
 ToTemporalData::usage = "Quick conversion to a temporal data object."]
 
@@ -68,18 +92,9 @@ RegularizeTimeSeries::usage = "RegularizeTimeSeries[data, resampleMethod,timeste
 Assumes data is regular shaped table. Timestamps must be DateObject. 
 Timestep specification can be any of the forms accepted by TimeSeriesResample (default is linear interpolation). "]
 
-If[ Not@ValueQ[pick::usage],
-pick::usage = "pick[condition_][x_] picks the elements from list/array x where the corresponding elements from another list/array meets a certain condition. Always wraps results in a list even when there is only one element (similar behavior to Position, Pick, ...).
-Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. "]
 
-If[ Not@ValueQ[Where::usage],
-Where::usage = "Where[condition,na (default Null)][x] sets elements from list/array x where the corresponding elements from another list/array meets a certain condition to na. 
-Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. "]
-Where::dmism="Dimension mismatch where boolean mask is `1` and target is `2`";
-
-If[ Not@ValueQ[extract::usage],
-extract::usage = "extract[x_,pattern_] gives an operator that can extract corresponding elements from another list. Unlike other functions, single results will be returned as is instead of inside a list. 
-e.g. extract[{1,2,4,5},_?(#>3&)]@{1,2,3,9} gives {3,9}"]
+(* ::Subsection::Closed:: *)
+(*Data import and manipulation*)
 
 
 If[ Not@ValueQ[take::usage],
@@ -100,6 +115,7 @@ Format of individual datasets must be tables, or flat (not hierarchical) and (on
 
 Options[MergeData]={KeyPosition->1,Header->False,JoinMethod->"Outer",keyCollisionFunction->Right};
 
+
 If[ Not@ValueQ[RunningAverage::usage],
 RunningAverage::usage = "This function select non-missing and daytime data, obtain averaged values for every x minute interval."]
 
@@ -107,6 +123,14 @@ Options[RunningAverage]={ReportPeriod->Quantity[10,"Minutes"]};
 
 If[ Not@ValueQ[DataSummary::usage],
 DataSummary::usage = "Simple summary of data shape."]
+
+If[ Not@ValueQ[GetNASAPowerData::usage],
+GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location."]
+
+
+(* ::Subsection::Closed:: *)
+(*Quick ReportPeriod statistics*)
+
 
 If[ Not@ValueQ[PeriodSum::usage],
 PeriodSum::usage = "PeriodSum[data] calculates the sums of a binned time window. Data should be dataset or table of the format {{time, value1, value2, ...}, ...}. 
@@ -160,9 +184,6 @@ Currently supported functions are:
 
 Options[PeriodMaster]={MinDataPts->60,ReportPeriod->"Day"};
 
-If[ Not@ValueQ[GetNASAPowerData::usage],
-GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location."]
-
 
 (* ::Text:: *)
 (*Supporting functions: *)
@@ -212,8 +233,12 @@ If[ Not@ValueQ[FigureAlbum::usage],
 FigureAlbum::usage = "Inspect a set of plots."]
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Solar related*)
+
+
+(* ::Subsection::Closed:: *)
+(*Solar geometry and meteorological*)
 
 
 If[ Not@ValueQ[DayLength::usage],
@@ -244,6 +269,12 @@ AoiProjection::usage = "AoiProjection[tilt,orientation,sunZenith,sunAzimuth] ret
 
 If[ Not@ValueQ[AngleOfIncidence::usage],
 AngleOfIncidence::usage = "AngleOfIncidence[tilt,orientation,sunZenith,sunAzimuth] returns the incidence angle between sunlight and module plane."]
+
+
+
+(* ::Subsection:: *)
+(*PV system related calculations*)
+
 
 If[ Not@ValueQ[PR::usage],
 PR::usage = "PR[power,ratedPower,irradiance] calculates the performance ratio."]
@@ -282,6 +313,11 @@ ModuleTemperature::usage = "ModuleTemperature[airT (in \[Degree]C), irradiance, 
 
 If[ Not@ValueQ[SimpleFaultDetect::usage],
 SimpleFaultDetect::usage = "SimpleFaultDetect[listGVIP,listPR,listIratio,listVratio] detects and highlights obvious faults."]
+
+
+(* ::Subsection::Closed:: *)
+(*Analytical monitoring*)
+
 
 If[ Not@ValueQ[TimeSeriesInspection::usage],
 TimeSeriesInspection::usage = "High level time series inspection and plots of system performance KPIs. 
@@ -330,6 +366,12 @@ Default options are: {\"DateFormat\"->{\"Day\",\"/\",\"Month\",\"/\",\"Year\",\"
 
 Options[PVDataPrep]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},"TimeZone"->$TimeZone,"Pdc_unit"->"kW","Pac_unit"->"kW","Tamb_unit"->"Celcius","Capacity_unit"->"kW",Tc->Null,ReportPeriod->"Day",InputResolution->Automatic};
 
+
+
+(* ::Subsection::Closed:: *)
+(*Spectrum related*)
+
+
 If[ Not@ValueQ[SpecScale::usage],
 SpecScale::usage = "SpecScale[scale_][spec_] performs simple scaling of spectrum. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. "]
 
@@ -346,6 +388,9 @@ If[ Not@ValueQ[Photocurrent::usage],
 Photocurrent::usage = "Photocurrent[spectra] calculates (the list of) implied short circuit current from a set of spectra. 
 Photocurrent[spec_,{wMin_,wMax_}] calculates it for a given range of wavelength. "]
 
+
+(* ::Section::Closed:: *)
+(*End of initialization*)
 
 
 Begin["`Private`"];
@@ -365,34 +410,70 @@ h=6.626*10^-34;
 (*General functions*)
 
 
+(* ::Section:: *)
+(*General*)
+
+
 (* ::Subsection::Closed:: *)
-(*DateObject handling*)
+(*Language core*)
 
 
-ReduceDateObject[dataset_,dateFormat_:{"Month","/","Day","/","Year"," ","Hour",":","Minute",":","Second"},position_:1]:=Block[{reducedOutput,$DateStringFormat=dateFormat},
+SetAttributes[QuietCheck,{HoldAll}];
+QuietCheck[expr_,failexpr_,msgs:(_MessageName|{__MessageName}|_String)]:=Quiet[Check[expr,failexpr,msgs],msgs];
+QuietCheck[expr_,failexpr_]:=Quiet[Check[expr,failexpr]];
 
-If[dateFormat==="DateList",
-	reducedOutput=Map[MapAt[DateList,#,position]&,dataset];
+
+PositionLargest[list_List] /; AllTrue[list, NumericQ] := First[FirstPosition[list, Max[list]]]
+ 
+PositionLargest[list_List, n_Integer] /; AllTrue[list, NumericQ] := Take[Flatten[(Position[list, #1] & ) /@ DeleteDuplicates[TakeLargest[list, n]]], n]
+ 
+PositionLargest[list_List, HoldPattern[UpTo][n_Integer]] /; AllTrue[list, NumericQ] := Take[Flatten[(Position[list, #1] & ) /@ DeleteDuplicates[TakeLargest[list, UpTo[n]]]], UpTo[n]]
+
+
+Rarest[l_List] := MinimalBy[Tally[l], Last][[All,1]]
+ 
+Rarest[l_List, n_] := SortBy[MinimalBy[Tally[l], Last, n][[All,1]], FirstPosition[l, #1] & ]
+
+
+(* ::Subsection::Closed:: *)
+(*Boolean masking*)
+
+
+pick[condition_][x_]:=Pick[x,ResourceFunction["BoolEval"][condition],1]
+SetAttributes[pick,HoldAll]
+
+
+Where[condition_,na_:Null][x_]:=Module[{booleanMask=ResourceFunction["BoolEval"][condition]},
+
+If[Dimensions@booleanMask!=Dimensions@x,
+	Message[Where::dmism,Dimensions@booleanMask,Dimensions@x];
+	Return@$Failed;
 ,
-	reducedOutput=Map[MapAt[DateString,#,position]&,dataset];
+	Return@ReplacePart[x,Position[booleanMask,1]->na]
 ];
 
-Return[reducedOutput]
 ];
+SetAttributes[Where,HoldAll]
 
 
-ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1]:=Module[{output,convertFn},
+extract[x_,pattern_]:=Extract[Replace[Position[x,pattern],{{p_Integer}}:>p]];
 
-If[dateFormat===Automatic,
-	convertFn=DateObject[#,TimeZone->timezone]&;
-	,
-	convertFn=If[Head@#=!=DateObject,DateObject[DateList[{#,dateFormat}],TimeZone->timezone],DateObject[#,TimeZone->timezone]]&;
-];
 
-output=Map[MapAt[convertFn,#,position]&,dataset];
+(* ::Subsection::Closed:: *)
+(*JSON Viewer*)
 
-Return@output;
-];
+
+ruleListQ[{r__Rule}]=True;(*JSON won't have RuleDelayed*)ruleListQ[_]=False;
+
+formatJSON[json_]:=Switch[json,
+_?ruleListQ,(*dictionary*)
+	Column@Replace[json,HoldPattern[a_->b_]:>OpenerView[{a,formatJSON[b]}],{1}],
+_?(ArrayQ[#,_,AtomQ]&),(*AtomQ makes sure that only arrays of basic types are formatted like this,not arrays of dictionaries*)
+	TableForm[json],
+_List,(*list of non-basic types,including ragged arrays*)
+	Column[formatJSON/@json,Frame->All],
+_,(*anything else*)
+	json]
 
 
 (* ::Subsection::Closed:: *)
@@ -457,6 +538,8 @@ dataset[All,#[[index]]->Drop[#,{index}]&]//Normal//Association//Dataset
 
 DropIndex[dataset_Dataset/;ArrayDepth@dataset==2,index_:0]:=dataset//Values;
 
+DropIndex[dataset_Dataset/;ArrayDepth@dataset==1,index_:0]:=dataset;
+
 
 (* ::Text:: *)
 (*Get column or index names. *)
@@ -476,6 +559,62 @@ DatasetIndices[dataset_Dataset/;ArrayDepth@dataset==2]:=dataset//Normal//Keys;
 
 RenameColumn[replaceRules_List][dataset_Dataset/;ArrayDepth@dataset==1]:=KeyMap[Replace[replaceRules]]/@dataset;
 RenameColumn[replaceRules_List][dataset_Dataset/;ArrayDepth@dataset==2]:=KeyMap[Replace[replaceRules]]/@DropIndex@dataset;
+
+
+(* ::Text:: *)
+(*Append columns.*)
+
+
+AppendColumn[array_List, x_List] := Transpose[Append[Transpose[array], x]];
+AppendColumn[array_List, x_] := Append[#, x]& /@ array;
+AppendColumn[x_] := Function[mat,AppendColumn[mat,x]]
+
+AppendColumn[array_Dataset/;ArrayDepth@array==1, x_List,colName_String:"new_column"] := Dataset[
+Table[
+	Append[Normal[array][[i]],colName->x[[i]]]
+,{i,Length@x}]
+]
+
+AppendColumn[array_Dataset/;ArrayDepth@array==2, x_List,colName_String:"new_column"] := Module[{table=FromDataset[array,True],output},
+
+output=AppendColumn[Rest@table,x];
+output=ToDataset[output,Append[First@table,colName]]//AddIndex[#,1]&
+
+]
+
+
+(* ::Section:: *)
+(*Time related*)
+
+
+(* ::Subsection::Closed:: *)
+(*DateObject handling*)
+
+
+ReduceDateObject[dataset_,dateFormat_:{"Month","/","Day","/","Year"," ","Hour",":","Minute",":","Second"},position_:1]:=Block[{reducedOutput,$DateStringFormat=dateFormat},
+
+If[dateFormat==="DateList",
+	reducedOutput=Map[MapAt[DateList,#,position]&,dataset];
+,
+	reducedOutput=Map[MapAt[DateString,#,position]&,dataset];
+];
+
+Return[reducedOutput]
+];
+
+
+ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1]:=Module[{output,convertFn},
+
+If[dateFormat===Automatic,
+	convertFn=DateObject[#,TimeZone->timezone]&;
+	,
+	convertFn=If[Head@#=!=DateObject,DateObject[DateList[{#,dateFormat}],TimeZone->timezone],DateObject[#,TimeZone->timezone]]&;
+];
+
+output=Map[MapAt[convertFn,#,position]&,dataset];
+
+Return@output;
+];
 
 
 (* ::Subsection::Closed:: *)
@@ -524,70 +663,6 @@ ts=ToTemporalData@data;
 Return@FromTemporalData@TimeSeriesResample[ts,timesteps,ResamplingMethod->resampleMethod];
 
 ];
-
-
-(* ::Subsection::Closed:: *)
-(*Boolean masking*)
-
-
-pick[condition_][x_]:=Pick[x,ResourceFunction["BoolEval"][condition],1]
-SetAttributes[pick,HoldAll]
-
-
-Where[condition_,na_:Null][x_]:=Module[{booleanMask=ResourceFunction["BoolEval"][condition]},
-
-If[Dimensions@booleanMask!=Dimensions@x,
-	Message[Where::dmism,Dimensions@booleanMask,Dimensions@x];
-	Return@$Failed;
-,
-	Return@ReplacePart[x,Position[booleanMask,1]->na]
-];
-
-];
-SetAttributes[Where,HoldAll]
-
-
-extract[x_,pattern_]:=Extract[Replace[Position[x,pattern],{{p_Integer}}:>p]];
-
-
-(* ::Subsection::Closed:: *)
-(*JSON Viewer*)
-
-
-ruleListQ[{r__Rule}]=True;(*JSON won't have RuleDelayed*)ruleListQ[_]=False;
-
-formatJSON[json_]:=Switch[json,
-_?ruleListQ,(*dictionary*)
-	Column@Replace[json,HoldPattern[a_->b_]:>OpenerView[{a,formatJSON[b]}],{1}],
-_?(ArrayQ[#,_,AtomQ]&),(*AtomQ makes sure that only arrays of basic types are formatted like this,not arrays of dictionaries*)
-	TableForm[json],
-_List,(*list of non-basic types,including ragged arrays*)
-	Column[formatJSON/@json,Frame->All],
-_,(*anything else*)
-	json]
-
-
-(* ::Subsection::Closed:: *)
-(*Language core*)
-
-
-SetAttributes[QuietCheck,{HoldAll}];
-QuietCheck[expr_,failexpr_,msgs:(_MessageName|{__MessageName}|_String)]:=Quiet[Check[expr,failexpr,msgs],msgs];
-QuietCheck[expr_,failexpr_]:=Quiet[Check[expr,failexpr]];
-
-
-(* ::Code::Initialization:: *)
-PositionLargest[list_List] /; AllTrue[list, NumericQ] := First[FirstPosition[list, Max[list]]]
- 
-PositionLargest[list_List, n_Integer] /; AllTrue[list, NumericQ] := Take[Flatten[(Position[list, #1] & ) /@ DeleteDuplicates[TakeLargest[list, n]]], n]
- 
-PositionLargest[list_List, HoldPattern[UpTo][n_Integer]] /; AllTrue[list, NumericQ] := Take[Flatten[(Position[list, #1] & ) /@ DeleteDuplicates[TakeLargest[list, UpTo[n]]]], UpTo[n]]
-
-
-(* ::Code::Initialization:: *)
-Rarest[l_List] := MinimalBy[Tally[l], Last][[All,1]]
- 
-Rarest[l_List, n_] := SortBy[MinimalBy[Tally[l], Last, n][[All,1]], FirstPosition[l, #1] & ]
 
 
 (* ::Section:: *)
@@ -1146,7 +1221,7 @@ Return[output]
 
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Plotting related*)
 
 
@@ -1217,7 +1292,7 @@ Return@output;
 ];
 
 
-(* ::Section::Closed:: *)
+(* ::Subsection::Closed:: *)
 (*Speedy post-processing of plots*)
 
 
@@ -1374,7 +1449,7 @@ AngleOfIncidence[tilt_,orientation_,sunZenith_,sunAzimuth_]:=ArcCos@AoiProjectio
 
 
 (* ::Section:: *)
-(*Misc KPIs*)
+(*Misc KPIs & General*)
 
 
 (* ::Subsection::Closed:: *)
@@ -1454,6 +1529,10 @@ CurrentRatio[current_,Isc_,Gpoa_?NonPositive,Tmod_,tempCoeff_:0.0005]:={0,0};
 
 CurrentRatio[current_,Isc_,Gpoa_?Positive]:={current/Isc,current/(Gpoa/1000*Isc)}; (* simplified without temperature correction *)
 CurrentRatio[current_,Isc_,Gpoa_?NonPositive]:={0,0};
+
+
+(* ::Subsection:: *)
+(*Quick conversion*)
 
 
 (* ::Section::Closed:: *)
