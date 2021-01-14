@@ -29,7 +29,7 @@ BeginPackage["PVSystemAnalysis`"];
 (*General functions*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*General*)
 
 
@@ -45,6 +45,9 @@ Where::dmism="Dimension mismatch where boolean mask is `1` and target is `2`";
 If[ Not@ValueQ[extract::usage],
 extract::usage = "extract[x_,pattern_] gives an operator that can extract corresponding elements from another list. Unlike other functions, single results will be returned as is instead of inside a list. 
 e.g. extract[{1,2,4,5},_?(#>3&)]@{1,2,3,9} gives {3,9}"]
+
+If[ Not@ValueQ[LogSpace::usage],
+LogSpace::usage = "LogSpace[a,b,n] generates n logarithmically spaced points in the interval [a,b]. "]
 
 
 If[ Not@ValueQ[ToDataset::usage],
@@ -134,9 +137,9 @@ GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T
 
 If[ Not@ValueQ[PeriodSum::usage],
 PeriodSum::usage = "PeriodSum[data] calculates the sums of a binned time window. Data should be dataset or table of the format {{time, value1, value2, ...}, ...}. 
-Default options are: {MinDataPts->60,ReportPeriod->\"Day\"}. Supported ReportPeriod are: \"Month\", \"Day\", \"Hour\", \"10 Minutes\". "]
+Default options are: {MinDataPts->60,ReportPeriod->\"Day\",Scaling\[Rule]1}. Supported ReportPeriod are: \"Month\", \"Day\", \"Hour\", \"10 Minutes\". "]
 
-Options[PeriodSum]={MinDataPts->60,ReportPeriod->"Day"};
+Options[PeriodSum]={MinDataPts->60,ReportPeriod->"Day",Scaling->1};
 
 If[ Not@ValueQ[PeriodSpan::usage],
 PeriodSpan::usage = "PeriodSpan[data] calculates the span of values within each binned time window. Data should be dataset or table of the format {{time, value1, value2, ...}, ...}. 
@@ -272,7 +275,7 @@ AngleOfIncidence::usage = "AngleOfIncidence[tilt,orientation,sunZenith,sunAzimut
 
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*PV system related calculations*)
 
 
@@ -302,6 +305,11 @@ VoltageRatio2::usage = "VoltageRatio2 calculates the ratio of actual voltage to 
 
 If[ Not@ValueQ[CurrentRatio::usage],
 CurrentRatio::usage = "CurrentRatio calculates the ratio of actual current to Isc (STC and expected)."]
+
+If[ Not@ValueQ[ConversionFactor::usage],
+ConversionFactor::usage = "Dictionary for factors to multiply when doing conversions.
+Supported keys: lookup (list all keys), J->kWh, \:4e07\:5343\:74e6->MW, \:4e07\:5343\:74e6->GW, Sum W/min->kWh, Sum W/5min->kWh, Sum W/10min->kWh, Sum W/15min->kWh, Sum W/hour->kWh.
+"]
 
 If[ Not@ValueQ[CablingLoss::usage],
 CablingLoss::usage = "CablingLoss[current,cableLength,crossSection] calculates the cabling loss in W."]
@@ -354,14 +362,15 @@ Object contains four elements:
 
 If[ Not@ValueQ[CrossSectionInspection::usage],
 CrossSectionInspection::usage = "Cross sectional inspection and plots of system performance. Default columns are {\"G\",\"Vdc\",\"Idc\",\"Pdc\",\"Tmod\",\"Vac\",\"Iac\",\"Pac\",\"Tamb\"}. 
-Default options are {NominalPower->Null}. 
+Default options are {NominalPower->Null,PlotOptions->{}}. Use PlotOptions to specify additional options for ListPlot.  
 crossPlots=CrossSectionInspection[pvData] takes in pv data object prepared by PVDataPrep.
+crossPlots=CrossSectionInspection[pvData,\"bin\"] takes in subsetted pv data object prepared by PVDataPrep with key \"bin\".
 {keys,crossPlot}=CrossSectionInspection[pvData,\"ZoomIn\",groupBy (default is by days)] gives crossPlot as a function to inspect each bin of data. "]
 
-Options[CrossSectionInspection]={NominalPower->Null};
+Options[CrossSectionInspection]={NominalPower->Null, PlotOptions->{}};
 
 If[ Not@ValueQ[PVDataPrep::usage],
-PVDataPrep::usage = "PVDataPrep[data,columns,nominal_power] prepares a PV data object to be passed into analytical monitoring functions.
+PVDataPrep::usage = "PVDataPrep[data,columns,nominal_power,groupBy(optional)] prepares a PV data object to be passed into analytical monitoring functions. Returns an association with keys: {\"PVDataObject\"=True,\"data\",\"columns\",\"data_binned\",\"bins\",\"NominalPower\",\"InputResolution\",\"Tc\",\"ReportPeriod\"}.
 Default options are: {\"DateFormat\"->{\"Day\",\"/\",\"Month\",\"/\",\"Year\",\" \",\"Hour\",\":\",\"Minute\"},\"TimeZone\"\[Rule]$TimeZone,\"Pdc_unit\"\[Rule]\"kW\",\"Pac_unit\"\[Rule]\"kW\",\"Tamb_unit\"\[Rule]\"Celcius\",\"Capacity_unit\"\[Rule]\"kW\"}"]
 
 Options[PVDataPrep]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},"TimeZone"->$TimeZone,"Pdc_unit"->"kW","Pac_unit"->"kW","Tamb_unit"->"Celcius","Capacity_unit"->"kW",Tc->Null,ReportPeriod->"Day",InputResolution->Automatic};
@@ -433,6 +442,9 @@ PositionLargest[list_List, HoldPattern[UpTo][n_Integer]] /; AllTrue[list, Numeri
 Rarest[l_List] := MinimalBy[Tally[l], Last][[All,1]]
  
 Rarest[l_List, n_] := SortBy[MinimalBy[Tally[l], Last, n][[All,1]], FirstPosition[l, #1] & ]
+
+
+LogSpace[a_,b_,n_]:=N[10^Range[Log10@a,Log10@b,(Log10@b-Log10@a)/n]];
 
 
 (* ::Subsection::Closed:: *)
@@ -918,7 +930,7 @@ Do[
 	,
 		(*periodSum=Total[periodSet[[All,2;;-1]]];*)
 		periodSum=fnSum[periodSet[[All,2;;-1]],Dimensions[periodSet][[2]]-1];
-		AppendTo[periodResults,Flatten[{DateObject[timestep],periodSum}]];
+		AppendTo[periodResults,Flatten[{DateObject[timestep],periodSum*OptionValue@Scaling}]];
 	];
 ,
 {timestep,Keys[groupedData]}];
@@ -1191,7 +1203,7 @@ If[Length@x!=0,
 		output=Total@Cases[Flatten@x,_?NumericQ];
 	];
 , (*else*)
-	If[d>1,output=Table[Missing["DateNotFound"],d],output=Missing["DateNotFound"]]
+	If[d>1,output=Table[Missing["NoValidData"],d],output=Missing["NoValidData"]]
 ];
 
 Return[output]
@@ -1221,7 +1233,7 @@ Return[output]
 
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Plotting related*)
 
 
@@ -1531,8 +1543,25 @@ CurrentRatio[current_,Isc_,Gpoa_?Positive]:={current/Isc,current/(Gpoa/1000*Isc)
 CurrentRatio[current_,Isc_,Gpoa_?NonPositive]:={0,0};
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Quick conversion*)
+
+
+(* factor to multiply for converting units *)
+ConversionFactor["J->kWh"]=1/3600000;
+ConversionFactor["\:4e07\:5343\:74e6->MW"]=10;
+ConversionFactor["\:4e07\:5343\:74e6->GW"]=0.01;
+
+(* factor to multiply from sum of average power readings to energy *)
+ConversionFactor["Sum W/min->kWh"]=1/60000;
+ConversionFactor["Sum W/5min->kWh"]=1/12000;
+ConversionFactor["Sum W/10min->kWh"]=1/6000;
+ConversionFactor["Sum W/15min->kWh"]=1/4000;
+ConversionFactor["Sum W/hour->kWh"]=1/1000;
+
+
+ConversionFactor["lookup"]=Column@{"J->kWh","\:4e07\:5343\:74e6->MW","\:4e07\:5343\:74e6->GW","Sum W/min->kWh","Sum W/5min->kWh","Sum W/10min->kWh","Sum W/15min->kWh","Sum W/hour->kWh"};
+ConversionFactor@_:=Block[{},Print@"no such conversion! Default value of 1 will be used.";1];
 
 
 (* ::Section::Closed:: *)
@@ -1973,7 +2002,7 @@ Column[{
 
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Cross-sectional inspection*)
 
 
@@ -1998,10 +2027,11 @@ Column[{
 (*- Idc-G*)
 
 
-CrossSectionInspection[data_List?(ArrayDepth@#==2&),columns:{___String}:{"G","Vdc","Idc","Pdc","Tmod","Vac","Iac","Pac","Tamb"},opt:OptionsPattern[]]:=Module[{colIndex,nominalP,PRdc=Null,PRac=Null,\[Eta]inverter,dcPlots=<||>,acPlots=<||>,tempData,tempData2},
+CrossSectionInspection[data_List?(ArrayDepth@#==2&),columns:{___String}:{"G","Vdc","Idc","Pdc","Tmod","Vac","Iac","Pac","Tamb"},opt:OptionsPattern[]]:=Module[{colIndex,nominalP,PRdc=Null,PRac=Null,\[Eta]inverter,dcPlots=<||>,acPlots=<||>,tempData,tempData2,defaultOptions,userOptions},
 nominalP=OptionValue[NominalPower];
 
-SetOptions[ListPlot,ImageSize->Large,Frame->{{True,True},{True,True}},FrameStyle->Directive[Black,Thickness[0.003]],FrameTicks->{{Automatic,None},{Automatic,None}},GridLines->Automatic,LabelStyle->{FontFamily->"Helvetica",FontSize->18,FontWeight->Bold,FontColor->Black},ImageMargins->15];
+defaultOptions={ImageSize->Large,Frame->{{True,True},{True,True}},FrameStyle->Directive[Black,Thickness[0.003]],FrameTicks->{{Automatic,None},{Automatic,None}},GridLines->Automatic,LabelStyle->{FontFamily->"Helvetica",FontSize->18,FontWeight->Bold,FontColor->Black},ImageMargins->15};
+userOptions=OptionValue@PlotOptions;
 
 If[Length[columns]!=Dimensions[data][[2]],
 	Print["error: columns are not properly defined"];
@@ -2016,11 +2046,15 @@ If[MemberQ[columns,"G"],
 (* ------------------------- plots involving DC power --------------------------------*)
 If[MemberQ[columns,"Pdc"],
 	(*DC power-irradiance plot*)
-	AppendTo[dcPlots,"Pdc-G"->ListPlot[data[[All,{colIndex["G"],colIndex["Pdc"]}]],PlotLabel->"Pdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"}]];
+	AppendTo[dcPlots,"Pdc-G"->
+		ListPlot[data[[All,{colIndex["G"],colIndex["Pdc"]}]],PlotLabel->"Pdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"},userOptions,defaultOptions]
+	];
 
 	If[NumberQ[nominalP],
 		(*Yf_dc-Yr plot*)
-		AppendTo[dcPlots,"Yf_dc-Yr"->ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@data[[All,{colIndex["G"],colIndex["Pdc"]}]],PlotLabel->"Yf_dc-Yr",FrameLabel->{"reference yield","DC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}]]];
+		AppendTo[dcPlots,"Yf_dc-Yr"->
+			ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@data[[All,{colIndex["G"],colIndex["Pdc"]}]],PlotLabel->"Yf_dc-Yr",FrameLabel->{"reference yield","DC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}],userOptions,defaultOptions]
+		];
 
 		(*calculate PR_dc*)
 		PRdc=PR[data[[All,colIndex["Pdc"]]],nominalP,data[[All,colIndex["G"]]]];
@@ -2031,10 +2065,14 @@ If[MemberQ[columns,"Pdc"],
 	(*alternative DC power-irradiance and Yf_dc-Yr plot and PR_dc calculation using Vdc and Idc*)
 	If[MemberQ[columns,"Vdc"]&&MemberQ[columns,"Idc"],
 		tempData={#[[1]],#[[2]]*#[[3]]}&/@(data[[All,{colIndex["G"],colIndex["Vdc"],colIndex["Idc"]}]]//Cases[{_?Positive,_?Positive,_?Positive}]);
-		AppendTo[dcPlots,"Pdc-G"->ListPlot[tempData,PlotLabel->"Pdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"}]];
+		AppendTo[dcPlots,"Pdc-G"->
+			ListPlot[tempData,PlotLabel->"Pdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"},userOptions,defaultOptions]
+		];
 
 		If[NumberQ[nominalP],
-			AppendTo[dcPlots,"Yf_dc-Yr"->ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@tempData,PlotLabel->"Yf_dc-Yr",FrameLabel->{"reference yield","DC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}]]];
+			AppendTo[dcPlots,"Yf_dc-Yr"->
+				ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@tempData,PlotLabel->"Yf_dc-Yr",FrameLabel->{"reference yield","DC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}],userOptions,defaultOptions]
+			];
 		PRdc=PR[tempData[[All,2]],nominalP,tempData[[All,1]]];
 		];
 	];
@@ -2043,26 +2081,38 @@ If[MemberQ[columns,"Pdc"],
 (* ------------------------- plots involving AC power --------------------------------*)
 If[MemberQ[columns,"Pac"],
 	(*AC power-irradiance plot*)
-	AppendTo[acPlots,"Pac-G"->ListPlot[data[[All,{colIndex["G"],colIndex["Pac"]}]],PlotLabel->"Pac-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","AC power"}]];
+	AppendTo[acPlots,"Pac-G"->
+		ListPlot[data[[All,{colIndex["G"],colIndex["Pac"]}]],PlotLabel->"Pac-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","AC power"},userOptions,defaultOptions]
+	];
 
 	If[MemberQ[columns,"Pdc"],
 		(*Pac-Pdc plot*)
-		AppendTo[acPlots,"Pac-Pdc"->ListPlot[data[[All,{colIndex["Pdc"],colIndex["Pac"]}]],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"}]];
+		AppendTo[acPlots,"Pac-Pdc"->
+			ListPlot[data[[All,{colIndex["Pdc"],colIndex["Pac"]}]],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"},userOptions,defaultOptions]
+		];
 
 		(*inverter efficiency-irradiance plot*)
-		AppendTo[acPlots,"eff_inverter-G"->ListPlot[{#[[1]],#[[2]]/#[[3]]}&/@Cases[data[[All,{colIndex["G"],colIndex["Pac"],colIndex["Pdc"]}]],{__?Positive}],PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]}]];
+		AppendTo[acPlots,"eff_inverter-G"->
+			ListPlot[{#[[1]],#[[2]]/#[[3]]}&/@Cases[data[[All,{colIndex["G"],colIndex["Pac"],colIndex["Pdc"]}]],{__?Positive}],
+			PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]},userOptions,defaultOptions]
+		];
 	];
 
 	If[NumberQ[nominalP],
 		(*Yf_ac-Yr plot*)
-		AppendTo[acPlots,"Yf_ac-Yr"->ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@data[[All,{colIndex["G"],colIndex["Pac"]}]],PlotLabel->"Yf_ac-Yr",FrameLabel->{"reference yield","AC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}]]];
+		AppendTo[acPlots,"Yf_ac-Yr"->
+			ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@data[[All,{colIndex["G"],colIndex["Pac"]}]],
+			PlotLabel->"Yf_ac-Yr",FrameLabel->{"reference yield","AC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}],userOptions,defaultOptions]
+		];
 
 		(*calculate PR_ac*)
 		PRac=PR[data[[All,colIndex["Pac"]]],nominalP,data[[All,colIndex["G"]]]];
 
 		(*Vac-Yf_ac plot*)
 		If[MemberQ[columns,"Vac"],
-			AppendTo[acPlots,"Vac-Yf_ac"->ListPlot[{#[[2]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Pac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC final yield","AC voltage (V)"}]];
+			AppendTo[acPlots,"Vac-Yf_ac"->
+				ListPlot[{#[[2]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Pac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC final yield","AC voltage (V)"},userOptions,defaultOptions]
+			];
 		];
 	];
 
@@ -2072,29 +2122,45 @@ If[MemberQ[columns,"Pac"],
 	If[MemberQ[columns,"Vac"]&&MemberQ[columns,"Iac"],
 		(*alternative AC power-irradiance plot, tempData={G,Pac}*)
 		tempData={#[[1]],#[[2]]*#[[3]]}&/@(data[[All,{colIndex["G"],colIndex["Vac"],colIndex["Iac"]}]]//Cases[{_?Positive,_?Positive,_?Positive}]);
-		AppendTo[acPlots,"Pac-G"->ListPlot[tempData,PlotLabel->"Pac-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"}]];
+		AppendTo[acPlots,"Pac-G"->
+			ListPlot[tempData,PlotLabel->"Pac-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"},userOptions,defaultOptions]
+		];
 		If[MemberQ[columns,"Pdc"],
 			(*alternative Pac-Pdc plot*)
-			AppendTo[acPlots,"Pac-Pdc"->ListPlot[{data[[All,colIndex["Pdc"]]],tempData[[All,2]]}\[Transpose],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"}]];
+			AppendTo[acPlots,"Pac-Pdc"->
+				ListPlot[{data[[All,colIndex["Pdc"]]],tempData[[All,2]]}\[Transpose],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"},userOptions,defaultOptions]
+			];
 			(*alternative inverter efficiency-irradiance plot*)
-			AppendTo[acPlots,"eff_inverter-G"->ListPlot[{#[[3]]*#[[2]]/#[[4]],#[[1]]}&/@Cases[data[[All,{colIndex["G"],colIndex["Vac"],colIndex["Iac"],colIndex["Pdc"]}]],{__?Positive}],PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]}]];
+			AppendTo[acPlots,"eff_inverter-G"->
+				ListPlot[{#[[3]]*#[[2]]/#[[4]],#[[1]]}&/@Cases[data[[All,{colIndex["G"],colIndex["Vac"],colIndex["Iac"],colIndex["Pdc"]}]],{__?Positive}],
+				PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]},userOptions,defaultOptions]
+			];
 		,
 			If[MemberQ[columns,"Vdc"]&&MemberQ[columns,"Idc"],
 				tempData2=data[[All,colIndex["Vdc"]]]*data[[All,colIndex["Idc"]]];
 				(*alternative Pac-Pdc plot*)
-				AppendTo[acPlots,"Pac-Pdc"->ListPlot[{tempData2,tempData[[All,2]]}\[Transpose],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"}]];
+				AppendTo[acPlots,"Pac-Pdc"->
+					ListPlot[{tempData2,tempData[[All,2]]}\[Transpose],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"},userOptions,defaultOptions]
+				];
 				(*alternative inverter efficiency-irradiance plot*)
-				AppendTo[acPlots,"eff_inverter-G"->ListPlot[{#[[2]]/#[[3]],#[[1]]}&/@Cases[Join[tempData,List@tempData2,2],{__?Positive}],PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]}]];
+				AppendTo[acPlots,"eff_inverter-G"->
+					ListPlot[{#[[2]]/#[[3]],#[[1]]}&/@Cases[Join[tempData,List@tempData2,2],{__?Positive}],
+					PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]},userOptions,defaultOptions]
+				];
 			];
 		];
 
 		If[NumberQ[nominalP],
 			(*alternative Yf_ac-Yr plot*)
-			AppendTo[dcPlots,"Yf_ac-Yr"->ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@tempData,PlotLabel->"Yf_ac-Yr",FrameLabel->{"reference yield","AC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}]]];
+			AppendTo[dcPlots,"Yf_ac-Yr"->
+				ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@tempData,PlotLabel->"Yf_ac-Yr",FrameLabel->{"reference yield","AC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}],userOptions,defaultOptions]
+			];
 			(*alternative PRac calculation*)
 			PRac=PR[tempData[[All,2]],nominalP,tempData[[All,1]]];
 			(*alternative Vac-Yf_ac plot*)
-			AppendTo[acPlots,"Vac-Yf_ac"->ListPlot[{#[[2]]*#[[3]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Iac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC voltage (V)","AC final yield"}]];
+			AppendTo[acPlots,"Vac-Yf_ac"->
+				ListPlot[{#[[2]]*#[[3]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Iac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC voltage (V)","AC final yield"},userOptions,defaultOptions]
+			];
 		];
 	];
 ];
@@ -2103,32 +2169,44 @@ If[MemberQ[columns,"Pac"],
 If[MemberQ[columns,"Tmod"],
 	(*Vdc-Tmod plot*)
 	If[MemberQ[columns,"Vdc"],
-		AppendTo[dcPlots,"Vdc-Tmod"->ListPlot[data[[All,{colIndex["Tmod"],colIndex["Vdc"]}]],PlotLabel->"Vdc-Tmod",FrameLabel->{"module temperature","DC voltage"}]];
+		AppendTo[dcPlots,"Vdc-Tmod"->
+			ListPlot[data[[All,{colIndex["Tmod"],colIndex["Vdc"]}]],PlotLabel->"Vdc-Tmod",FrameLabel->{"module temperature","DC voltage"},userOptions,defaultOptions]
+		];
 	];
 
 	(*PR-Tmod plot*)
 	If[PRdc=!=Null,
-		AppendTo[dcPlots,"PRdc-Tmod"->ListPlot[{data[[All,colIndex["Tmod"]]],PRdc}\[Transpose],PlotLabel->"PRdc-Tmod",FrameLabel->{"module temperature","PR_dc"}]];
+		AppendTo[dcPlots,"PRdc-Tmod"->
+			ListPlot[{data[[All,colIndex["Tmod"]]],PRdc}\[Transpose],PlotLabel->"PRdc-Tmod",FrameLabel->{"module temperature","PR_dc"},userOptions,defaultOptions]
+		];
 	];
 	If[PRac=!=Null,
-		AppendTo[acPlots,"PRac-Tmod"->ListPlot[{data[[All,colIndex["Tmod"]]],PRac}\[Transpose],PlotLabel->"PRac-Tmod",FrameLabel->{"module temperature","PR_ac"}]];
+		AppendTo[acPlots,"PRac-Tmod"->
+			ListPlot[{data[[All,colIndex["Tmod"]]],PRac}\[Transpose],PlotLabel->"PRac-Tmod",FrameLabel->{"module temperature","PR_ac"},userOptions,defaultOptions]
+		];
 	];
 
 	(*(Tmod-Tamb)-Yr plot*)
 	If[MemberQ[columns,"Tamb"],
-		AppendTo[dcPlots,"delta_Tmod_Tamb-Yr"->ListPlot[{#[[2]]-#[[3]],#[[1]]/1000}&/@data[[All,{colIndex["G"],colIndex["Tmod"],colIndex["Tamb"]}]],PlotLabel->"delta_Tmod_Tamb-Yr",FrameLabel->{"reference yield","Tmod-Tamb"}]];
+		AppendTo[dcPlots,"delta_Tmod_Tamb-Yr"->
+			ListPlot[{#[[2]]-#[[3]],#[[1]]/1000}&/@data[[All,{colIndex["G"],colIndex["Tmod"],colIndex["Tamb"]}]],PlotLabel->"delta_Tmod_Tamb-Yr",FrameLabel->{"reference yield","Tmod-Tamb"},userOptions,defaultOptions]
+		];
 	];
 ];
 
 (* ------------------------- others --------------------------------*)
 If[MemberQ[columns,"Vdc"],
 	(*Vdc-irradiance plot*)
-	AppendTo[dcPlots,"Vdc-G"->ListPlot[data[[All,{colIndex["G"],colIndex["Vdc"]}]],PlotLabel->"Vdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC voltage (V)"}]];
+	AppendTo[dcPlots,"Vdc-G"->
+		ListPlot[data[[All,{colIndex["G"],colIndex["Vdc"]}]],PlotLabel->"Vdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC voltage (V)"},userOptions,defaultOptions]
+	];
 ];
 
 If[MemberQ[columns,"Idc"],
 	(*Idc-irradiance plot*)
-	AppendTo[dcPlots,"Idc-G"->ListPlot[data[[All,{colIndex["G"],colIndex["Idc"]}]],PlotLabel->"Idc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC current (A)"}]];
+	AppendTo[dcPlots,"Idc-G"->
+		ListPlot[data[[All,{colIndex["G"],colIndex["Idc"]}]],PlotLabel->"Idc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC current (A)"},userOptions,defaultOptions]
+	];
 ];
 
 ,
@@ -2136,15 +2214,21 @@ If[MemberQ[columns,"Idc"],
 Print["warning: no irradiance data present"];
 If[MemberQ[columns,"Tmod"]&&MemberQ[columns,"Vdc"],
 	(*Vdc-Tmod plot*)
-	AppendTo[dcPlots,"Vdc-Tmod"->ListPlot[data[[All,{colIndex["Vdc"],colIndex["Tmod"]}]],PlotLabel->"Vdc-Tmod",FrameLabel->{"module temperature","DC voltage (V)"}]];
+	AppendTo[dcPlots,"Vdc-Tmod"->
+		ListPlot[data[[All,{colIndex["Vdc"],colIndex["Tmod"]}]],PlotLabel->"Vdc-Tmod",FrameLabel->{"module temperature","DC voltage (V)"},userOptions,defaultOptions]
+	];
 ];
 
 If[MemberQ[columns,"Pac"]&&MemberQ[columns,"Vac"]&&NumberQ[nominalP],
-	AppendTo[acPlots,"Vac-Yf_ac"->ListPlot[{#[[2]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Pac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC yield","AC voltage"}]];
+	AppendTo[acPlots,"Vac-Yf_ac"->
+		ListPlot[{#[[2]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Pac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC yield","AC voltage"},userOptions,defaultOptions]
+	];
 ];
 
 If[MemberQ[columns,"Pac"]&&MemberQ[columns,"Pdc"],
-	AppendTo[acPlots,"Pac-Pdc"->ListPlot[data[[All,{colIndex["Pdc"],colIndex["Pac"]}]],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"}]];
+	AppendTo[acPlots,"Pac-Pdc"->
+		ListPlot[data[[All,{colIndex["Pdc"],colIndex["Pac"]}]],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"},userOptions,defaultOptions]
+	];
 ];
 
 ];
@@ -2156,18 +2240,21 @@ Return[acPlots~Join~dcPlots]
 CrossSectionInspection[data_Dataset,columns:{___String}:{"G","Vdc","Idc","Pdc","Tmod","Vac","Iac","Pac","Tamb"},opt:OptionsPattern[]]:=CrossSectionInspection[FromDataset@data,columns,opt];
 
 
-CrossSectionInspection[data_Association/;data["PVDataObject"]]:=CrossSectionInspection[data["data"],data["columns"],NominalPower->data["NominalPower"]];
+CrossSectionInspection[data_Association/;data["PVDataObject"],opt:OptionsPattern[]]:=CrossSectionInspection[data["data"],data["columns"],NominalPower->data["NominalPower"],opt];
 
 
-CrossSectionInspection[data_Association/;data["PVDataObject"],"ZoomIn",groupBy_:{"Year","-","Month","-","Day"}]:=With[{groupData=GroupBy[data["data"],DateString[#//extract[data["columns"],"Timestamp"],groupBy]&]},
+CrossSectionInspection[data_Association/;data["PVDataObject"],bin_,opt:OptionsPattern[]]:=CrossSectionInspection[data["data_binned"]@bin,data["columns"],NominalPower->data["NominalPower"],opt];
+
+
+CrossSectionInspection[data_Association/;data["PVDataObject"],"ZoomIn",groupBy_:{"Year","-","Month","-","Day"},opt:OptionsPattern[]]:=With[{groupData=GroupBy[data["data"],DateString[#//extract[data["columns"],"Timestamp"],groupBy]&]},
 {
 Keys@groupData,
-CrossSectionInspection[groupData[#],data["columns"],NominalPower->data["NominalPower"]]&
+CrossSectionInspection[groupData[#],data["columns"],NominalPower->data["NominalPower"],opt]&
 }
 ];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Helper functions*)
 
 
@@ -2176,7 +2263,7 @@ CrossSectionInspection[groupData[#],data["columns"],NominalPower->data["NominalP
 (*Function converts timestamps to DateObjects, auto detect time resolution, and pass on all specified options. *)
 
 
-PVDataPrep[data_List?(ArrayDepth@#==2&),Shortest[columns:_:{"Timestamp","G","Vdc","Idc","Pdc","Tmod","Vac","Iac","Pac","Tamb"}],nominalP:_?NumericQ:Null,groupBy:_:{"Year","-","Month","-","Day"},opt:OptionsPattern[]]:=Module[{self=<|"PVDataObject"->True|>,dataOut,colIndex,inputResolution,groupData},
+PVDataPrep[data_List?(ArrayDepth@#==2&),Shortest[columns:_:{"Timestamp","G","Vdc","Idc","Pdc","Tmod","Vac","Iac","Pac","Tamb"}],nominalP:_?NumericQ:Null,groupBy:_:"Off",opt:OptionsPattern[]]:=Module[{self=<|"PVDataObject"->True|>,dataOut,colIndex,inputResolution,groupData=<||>},
 
 If[Length[columns]!=Dimensions[data][[2]],
 	Print["error: columns are not properly defined"];
@@ -2194,7 +2281,9 @@ If[MemberQ[columns,"Timestamp"],
 ];
 
 (* binned data *)
-(*groupData=GroupBy[dataOut,DateString[#[[colIndex["Timestamp"]]],groupBy]&];*)
+If[groupBy=!="Off",
+	groupData=GroupBy[dataOut,groupBy]
+];
 
 (* standardize units *)
 If[MatchQ[OptionValue@"Pdc_unit","kW"|"kw"]&&MemberQ[columns,"Pdc"],dataOut[[All,colIndex["Pdc"]]]*=1000;];
@@ -2208,8 +2297,8 @@ If[inputResolution===Automatic,inputResolution=QuantityMagnitude[First@Commonest
 (* construct object *)
 AppendTo[self,"data"->dataOut];
 AppendTo[self,"columns"->columns];
-(*AppendTo[self,"data_binned"\[Rule]groupData];
-AppendTo[self,"bins"\[Rule]Keys@groupData];*)
+AppendTo[self,"data_binned"->groupData];
+AppendTo[self,"bins"->Keys@groupData];
 AppendTo[self,"NominalPower"->If[MatchQ[OptionValue@"Capacity_unit","kW"|"kw"]&&nominalP=!=Null,nominalP*1000,nominalP]];
 AppendTo[self,"InputResolution"->inputResolution];
 AppendTo[self,"Tc"->OptionValue@Tc];
