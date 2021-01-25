@@ -29,7 +29,7 @@ BeginPackage["PVSystemAnalysis`"];
 (*General functions*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*General*)
 
 
@@ -48,6 +48,12 @@ e.g. extract[{1,2,4,5},_?(#>3&)]@{1,2,3,9} gives {3,9}"]
 
 If[ Not@ValueQ[LogSpace::usage],
 LogSpace::usage = "LogSpace[a,b,n] generates n logarithmically spaced points in the interval [a,b]. "]
+
+If[ Not@ValueQ[MeshGrid::usage],
+MeshGrid::usage = "MeshGrid[xlist,ylist] generates a mesh grid similar to Numpy function meshgrid. "]
+
+If[ Not@ValueQ[MeshGridCoord::usage],
+MeshGridCoord::usage = "MeshGridCoord[xlist,ylist] generates a mesh grid of {x,y} coordinate pairs. "]
 
 
 If[ Not@ValueQ[ToDataset::usage],
@@ -445,6 +451,10 @@ Rarest[l_List, n_] := SortBy[MinimalBy[Tally[l], Last, n][[All,1]], FirstPositio
 
 
 LogSpace[a_,b_,n_]:=N[10^Range[Log10@a,Log10@b,(Log10@b-Log10@a)/n]];
+
+
+MeshGrid[x_List,y_List]:={ConstantArray[x,Length[y]],Transpose@ConstantArray[Reverse@y,Length[x]]};
+MeshGridCoord[x_List,y_List]:=MapThread[N@*List,MeshGrid[x,y],2];
 
 
 (* ::Subsection::Closed:: *)
