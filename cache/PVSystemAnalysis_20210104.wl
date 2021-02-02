@@ -25,39 +25,16 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*General functions*)
 
 
-(* ::Subsection::Closed:: *)
-(*General*)
+If[ Not@ValueQ[ReduceDateObject::usage],
+ReduceDateObject::usage = "ReduceDateObject[dataset_,dateFormat_:{Month,/,Day,/,Year, ,Hour,:,Minute},position_:1] does quick conversion of DateObject back to string according to specified dateFormat. "]
 
-
-If[ Not@ValueQ[pick::usage],
-pick::usage = "pick[condition_][x_] picks the elements from list/array x where the corresponding elements from another list/array meets a certain condition. Always wraps results in a list even when there is only one element (similar behavior to Position, Pick, ...).
-Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. "]
-
-If[ Not@ValueQ[Where::usage],
-Where::usage = "Where[condition,na (default Null)][x] sets elements from list/array x where the corresponding elements from another list/array meets a certain condition to na. 
-Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. "]
-Where::dmism="Dimension mismatch where boolean mask is `1` and target is `2`";
-
-If[ Not@ValueQ[extract::usage],
-extract::usage = "extract[x_,pattern_] gives an operator that can extract corresponding elements from another list. Unlike other functions, single results will be returned as is instead of inside a list. 
-e.g. extract[{1,2,4,5},_?(#>3&)]@{1,2,3,9} gives {3,9}"]
-
-If[ Not@ValueQ[LogSpace::usage],
-LogSpace::usage = "LogSpace[a,b,n] generates n logarithmically spaced points in the interval [a,b]. "]
-
-If[ Not@ValueQ[MeshGrid::usage],
-MeshGrid::usage = "MeshGrid[xlist,ylist] generates a mesh grid similar to Numpy function meshgrid. "]
-
-If[ Not@ValueQ[MeshGridCoord::usage],
-MeshGridCoord::usage = "MeshGridCoord[xlist,ylist] generates a mesh grid of {x,y} coordinate pairs. "]
-
-If[ Not@ValueQ[FromAssociation::usage],
-FromAssociation::usage = "FromAssociation[x] converts an association to a flat table with keys as the first column. "]
-
+If[ Not@ValueQ[ConvertDateObject::usage],
+ConvertDateObject::usage = "ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1] does quick conversion of DateObject to show in a specified timezone. 
+Note: timezone default is set to machine local timezone (not dynamic). If timestamp is already in DateObject format, it will be converted to the specified timezone. "]
 
 If[ Not@ValueQ[ToDataset::usage],
 ToDataset::usage = "Quick conversion of a table to a dataset."]
@@ -75,39 +52,10 @@ If[ Not@ValueQ[DatasetColumns::usage],
 DatasetColumns::usage = "Gives the column names of a flat dataset. "]
 
 If[ Not@ValueQ[DatasetIndices::usage],
-DatasetIndices::usage = "Gives the indices of a row indexed dataset. "];
+DatasetIndices::usage = "Gives the indices of a row indexed dataset. "]
 
 If[ Not@ValueQ[RenameColumn::usage],
-RenameColumn::usage = "RenameColumn[replaceRules][dataset] replaces column names with a list of rules. "];
-
-If[ Not@ValueQ[AppendColumn::usage],
-AppendColumn::usage = "AppendColumn[array_List, x] appends x to array as a column. 
-AppendColumn[array_Dataset, x_List,colName:\"new_column\"] appends column to dataset with a column name. 
-AppendColumn[x] and AppendColumn[x,\"ToDataset\",colName:\"new_column\"] are operator forms to be applied to array and Dataset respectively. "];
-
-
-If[ Not@ValueQ[take::usage],
-take::usage = "Operator form of function Take."];
-
-If[ Not@ValueQ[TestArray::usage],
-TestArray::usage = "TestArray[row_,col_] generates a row by col position numbered test array."];
-
-If[ Not@ValueQ[first::usage],
-first::usage = "Copy of function First except when encountering input that is not a list, returns input unchanged. \
-This is useful for mapping First to outputs from a listable function but not sure whether there are multiple outputs or only one."];
-
-
-(* ::Subsection::Closed:: *)
-(*Time related*)
-
-
-If[ Not@ValueQ[ReduceDateObject::usage],
-ReduceDateObject::usage = "ReduceDateObject[dataset_,dateFormat_:{Month,/,Day,/,Year, ,Hour,:,Minute},position_:1] does quick conversion of DateObject back to string according to specified dateFormat. "]
-
-If[ Not@ValueQ[ConvertDateObject::usage],
-ConvertDateObject::usage = "ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1] does quick conversion of DateObject to show in a specified timezone. 
-Note: timezone default is set to machine local timezone (not dynamic). If timestamp is already in DateObject format, it will be converted to the specified timezone. "]
-
+RenameColumn::usage = "RenameColumn[replaceRules][dataset] replaces column names with a list of rules. "]
 
 If[ Not@ValueQ[ToTemporalData::usage],
 ToTemporalData::usage = "Quick conversion to a temporal data object."]
@@ -120,10 +68,25 @@ RegularizeTimeSeries::usage = "RegularizeTimeSeries[data, resampleMethod,timeste
 Assumes data is regular shaped table. Timestamps must be DateObject. 
 Timestep specification can be any of the forms accepted by TimeSeriesResample (default is linear interpolation). "]
 
+If[ Not@ValueQ[pick::usage],
+pick::usage = "pick[condition_][x_] picks the elements from list/array x where the corresponding elements from another list/array meets a certain condition. Always wraps results in a list even when there is only one element (similar behavior to Position, Pick, ...).
+Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. "]
 
-(* ::Subsection::Closed:: *)
-(*Data import and manipulation*)
+If[ Not@ValueQ[Where::usage],
+Where::usage = "Where[condition,na (default Null)][x] sets elements from list/array x where the corresponding elements from another list/array meets a certain condition to na. 
+Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. "]
+Where::dmism="Dimension mismatch where boolean mask is `1` and target is `2`";
 
+If[ Not@ValueQ[extract::usage],
+extract::usage = "extract[x_,pattern_] gives an operator that can extract corresponding elements from another list. Unlike other functions, single results will be returned as is instead of inside a list. 
+e.g. extract[{1,2,4,5},_?(#>3&)]@{1,2,3,9} gives {3,9}"]
+
+
+If[ Not@ValueQ[take::usage],
+take::usage = "Operator form of function Take."]
+
+If[ Not@ValueQ[TestArray::usage],
+TestArray::usage = "TestArray[row_,col_] generates a row by col position numbered test array."]
 
 If[ Not@ValueQ[MultiImport::usage],
 MultiImport::usage = "Import multiple files at the same time."]
@@ -132,17 +95,10 @@ If[ Not@ValueQ[Glimpse::usage],
 Glimpse::usage = "quick look at data dimension and first few rows."]
 
 If[ Not@ValueQ[MergeData::usage],
-MergeData::usage = "MergeData[datasets] merges multiple datasets with a common key (e.g. timestamp). The input needs to be a table of datasets: {dataset1, dataset2, ...}, output will be in dataset format even if inputs are tables. \
-Format of individual datasets must be tables, or flat (not hierarchical) and (only) column indexed Dataset objects. It is not advisable to use DateObject as the timestamp as its exact form may not be the same while appearing to be the same timestamp. 
-MergeData[tables,\"Fast\"] merges tables using a fast method assuming first column as common key. "]
+MergeData::usage = "This function merges multiple datasets with a common key (e.g. timestamp). The input needs to be a table of datasets: {dataset1, dataset2, ...}. 
+Format of individual datasets must be tables, or flat (not hierarchical) and (only) column indexed Dataset objects. It is not advisable to use DateObject as the timestamp as its exact form may not be the same while appearing to be the same timestamp. "]
 
 Options[MergeData]={KeyPosition->1,Header->False,JoinMethod->"Outer",keyCollisionFunction->Right};
-
-If[ Not@ValueQ[Resample::usage],
-Resample::usage = "Resample[dataset,groupBy:\"ISODate\"] returns an association from applying function GroupBy assuming first column is the timestamp. \
-Timestamp is removed from grouped data and appear as keys in the output association. 
-Resample[dataset,groupBy,func] further applies a function to each column of the grouped bins. "]
-
 
 If[ Not@ValueQ[RunningAverage::usage],
 RunningAverage::usage = "This function select non-missing and daytime data, obtain averaged values for every x minute interval."]
@@ -152,19 +108,11 @@ Options[RunningAverage]={ReportPeriod->Quantity[10,"Minutes"]};
 If[ Not@ValueQ[DataSummary::usage],
 DataSummary::usage = "Simple summary of data shape."]
 
-If[ Not@ValueQ[GetNASAPowerData::usage],
-GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location."]
-
-
-(* ::Subsection::Closed:: *)
-(*Quick ReportPeriod statistics*)
-
-
 If[ Not@ValueQ[PeriodSum::usage],
 PeriodSum::usage = "PeriodSum[data] calculates the sums of a binned time window. Data should be dataset or table of the format {{time, value1, value2, ...}, ...}. 
-Default options are: {MinDataPts->60,ReportPeriod->\"Day\",Scaling\[Rule]1}. Supported ReportPeriod are: \"Month\", \"Day\", \"Hour\", \"10 Minutes\". "]
+Default options are: {MinDataPts->60,ReportPeriod->\"Day\"}. Supported ReportPeriod are: \"Month\", \"Day\", \"Hour\", \"10 Minutes\". "]
 
-Options[PeriodSum]={MinDataPts->60,ReportPeriod->"Day",Scaling->1};
+Options[PeriodSum]={MinDataPts->60,ReportPeriod->"Day"};
 
 If[ Not@ValueQ[PeriodSpan::usage],
 PeriodSpan::usage = "PeriodSpan[data] calculates the span of values within each binned time window. Data should be dataset or table of the format {{time, value1, value2, ...}, ...}. 
@@ -211,6 +159,9 @@ Currently supported functions are:
 "]
 
 Options[PeriodMaster]={MinDataPts->60,ReportPeriod->"Day"};
+
+If[ Not@ValueQ[GetNASAPowerData::usage],
+GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location."]
 
 
 (* ::Text:: *)
@@ -261,12 +212,8 @@ If[ Not@ValueQ[FigureAlbum::usage],
 FigureAlbum::usage = "Inspect a set of plots."]
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Solar related*)
-
-
-(* ::Subsection::Closed:: *)
-(*Solar geometry and meteorological*)
 
 
 If[ Not@ValueQ[DayLength::usage],
@@ -298,12 +245,6 @@ AoiProjection::usage = "AoiProjection[tilt,orientation,sunZenith,sunAzimuth] ret
 If[ Not@ValueQ[AngleOfIncidence::usage],
 AngleOfIncidence::usage = "AngleOfIncidence[tilt,orientation,sunZenith,sunAzimuth] returns the incidence angle between sunlight and module plane."]
 
-
-
-(* ::Subsection::Closed:: *)
-(*PV system related calculations*)
-
-
 If[ Not@ValueQ[PR::usage],
 PR::usage = "PR[power,ratedPower,irradiance] calculates the performance ratio."]
 
@@ -323,41 +264,29 @@ If[ Not@ValueQ[CalcPRcorrW::usage],
 CalcPRcorrW::usage = "CalcPR[table,powerCol,ratedPower,irrCol,T,Tc,avgT] calculates the performance ratio and append as a column for a dataset."]
 
 If[ Not@ValueQ[VoltageRatio::usage],
-VoltageRatio::usage = "VoltageRatio[V,Voc,Gpoa,Tmod (in K),Ns,tempCoeff:-0.003,n:1] calculates the ratio of actual voltage to expected Voc under a certain operating condition with simple temperature and irradiance correction.
-VoltageRatio[V,Voc,Tmod (in K),tempCoeff:-0.003] calculates the expected ratio with temperature correction only. "];
+VoltageRatio::usage = "VoltageRatio calculates the ratio of actual voltage to Voc (STC and expected) with simple temperature and irradiance correction."]
 
-(*If[ Not@ValueQ[VoltageRatio2::usage],
-VoltageRatio2::usage = "VoltageRatio2 calculates the ratio of actual voltage to Voc (STC and expected) without irradiance correction."]*)
+If[ Not@ValueQ[VoltageRatio2::usage],
+VoltageRatio2::usage = "VoltageRatio2 calculates the ratio of actual voltage to Voc (STC and expected) without irradiance correction."]
 
 If[ Not@ValueQ[CurrentRatio::usage],
-CurrentRatio::usage = "CurrentRatio[current,Isc,Gpoa,Tmod (in K),tempCoeff:0.0005] calculates the ratio of actual current to expected Isc under a certain operating condition with temperature correction.
-CurrentRatio[current,Isc,Gpoa] calculates the ratio without temperature correction"];
-
-If[ Not@ValueQ[ConversionFactor::usage],
-ConversionFactor::usage = "Dictionary for factors to multiply when doing conversions.
-Supported keys: lookup (list all keys), J->kWh, \:4e07\:5343\:74e6->MW, \:4e07\:5343\:74e6->GW, Sum W/min->kWh, Sum W/5min->kWh, Sum W/10min->kWh, Sum W/15min->kWh, Sum W/hour->kWh, ohm*cm2->ohm*m2, mA/cm2->A/m2..."];
+CurrentRatio::usage = "CurrentRatio calculates the ratio of actual current to Isc (STC and expected)."]
 
 If[ Not@ValueQ[CablingLoss::usage],
-CablingLoss::usage = "CablingLoss[current,cableLength,crossSection] calculates the cabling loss in W."];
+CablingLoss::usage = "CablingLoss[current,cableLength,crossSection] calculates the cabling loss in W."]
 
 Options[CablingLoss]={"NumLineCoeff"->1,"LengthCableFactor"->2,"Resistivity"->0.023};
 
 If[ Not@ValueQ[ModuleTemperature::usage],
-ModuleTemperature::usage = "ModuleTemperature[airT (in \[Degree]C), irradiance, Tc (default -0.003), \[Eta]stc (default 0.2), U-value (default 29)] estimates the PV module temperature based on simple heat balance model (Faiman 2008). "];
+ModuleTemperature::usage = "ModuleTemperature[airT (in \[Degree]C), irradiance, Tc (default -0.003), \[Eta]stc (default 0.2), U-value (default 29)] estimates the PV module temperature based on simple heat balance model (Faiman 2008). "]
 
 If[ Not@ValueQ[SimpleFaultDetect::usage],
-SimpleFaultDetect::usage = "SimpleFaultDetect[listGVIP,listPR,listIratio,listVratio] detects and highlights obvious faults."];
-
-
-(* ::Subsection::Closed:: *)
-(*Analytical monitoring*)
-
+SimpleFaultDetect::usage = "SimpleFaultDetect[listGVIP,listPR,listIratio,listVratio] detects and highlights obvious faults."]
 
 If[ Not@ValueQ[TimeSeriesInspection::usage],
 TimeSeriesInspection::usage = "High level time series inspection and plots of system performance KPIs. 
 {outputData,plots}=TimeSeriesInspection[data,columns(optional)], columns by default is {Timestamp,G,Vdc,Idc,Pdc,Vac,Iac,Pac}, others can include: {cum_meter_reading, Tmod}. 
 Default options are {NominalPower->Null,Tc->Null,InputResolution->1,ReportPeriod->\"Day\"}. 
-{outputData,plots}=TimeSeriesInspection[pvData] takes in pv data object prepared by PVDataPrep. Options supplied at this stage overides that in PVDataPrep. 
 Note: 
 Make sure column names are properly defined and correspond to data. 
 Make sure the unit for power in the input data is W, which indicate average power in a time step. Input temporal resolution should be specified in number of minutes (default is 1 minute). Reporting unit will be in KWh, which indicate energy in a certain ReportPeriod (default is 1 day, alternative can be 1 month, 1 hour, 10 minutes). 
@@ -372,48 +301,34 @@ PR for DC and AC side is calculated separately, so discrepancy may exist. "]
 Options[TimeSeriesInspection]={NominalPower->Null,Tc->Null,InputResolution->1,ReportPeriod->"Day"};
 
 If[ Not@ValueQ[TimeSeriesSummary::usage],
-TimeSeriesSummary::usage = "Quick summary table of outputs from TimeSeriesInspection. 
-Can apply to the primary summary table again with TimeSeriesSummary[\"Month\",aggregation_method (default is Total)] or TimeSeriesSummary[\"Year\",aggregation_method] in order to get monthly or yearly summary. "]
+TimeSeriesSummary::usage = "Quick summary table of outputs from TimeSeriesInspection. "]
 
 If[ Not@ValueQ[TimeSeriesInspect::usage],
 TimeSeriesInspect::usage = "TimeSeriesInspect[data,start,end,plot options] returns {cropped timeseries, DateListPlots for each column}. "]
 
 If[ Not@ValueQ[TimeSeriesAlbum::usage],
-TimeSeriesAlbum::usage = "TimeSeriesAlbum[dataIn,groupBy:\"ISODate\",plotOptions] gives an object containing data slices and their plots for each column. 
+TimeSeriesAlbum::usage = "TimeSeriesAlbum[dataIn,groupBy:{Year,Month,Day},plotOptions] gives an object containing data slices and their plots for each column. 
 Argument groupBy specifies how data should be binned and the corresponding key formats for each bin, can take in permitted arguments for function DateString.
-Object contains four elements: \
-- \"bins\" gives keys for time slices; \
-- \"columns\" gives columns (parameters); \
-- \"data\" gives a pure function with one argument call (bin) and returns data in that bin; \
-- \"plot\" gives a pure function with two argument calls: DateListPlot[bin,column]; \
-- \"album\" is interactive exploration of data. "]
+Object contains four elements: 
+\"bins\" gives keys for time slices; 
+\"columns\" gives columns (parameters); 
+\"data\" gives a pure function with one argument call (bin) and returns data in that bin;
+\"plot\" gives a pure function with two argument calls: DateListPlot[bin,column]; 
+\"album\" is interactive exploration of data. "]
 
 If[ Not@ValueQ[CrossSectionInspection::usage],
 CrossSectionInspection::usage = "Cross sectional inspection and plots of system performance. Default columns are {\"G\",\"Vdc\",\"Idc\",\"Pdc\",\"Tmod\",\"Vac\",\"Iac\",\"Pac\",\"Tamb\"}. 
-Default options are {NominalPower->Null,PlotOptions->{}}. Use PlotOptions to specify additional options for ListPlot.  
-crossPlots=CrossSectionInspection[pvData] takes in pv data object prepared by PVDataPrep. Options supplied at this stage overides that in PVDataPrep. 
-crossPlots=CrossSectionInspection[pvData,\"bin\"] takes in subsetted pv data object prepared by PVDataPrep with key \"bin\".
+Default options are {NominalPower->Null}. 
+crossPlots=CrossSectionInspection[pvData] takes in pv data object prepared by PVDataPrep.
 {keys,crossPlot}=CrossSectionInspection[pvData,\"ZoomIn\",groupBy (default is by days)] gives crossPlot as a function to inspect each bin of data. "]
 
-Options[CrossSectionInspection]={NominalPower->Null, PlotOptions->{}};
+Options[CrossSectionInspection]={NominalPower->Null};
 
 If[ Not@ValueQ[PVDataPrep::usage],
-PVDataPrep::usage = "PVDataPrep[data,columns,nominal_power,groupBy(optional)] prepares a PV data object to be passed into analytical monitoring functions. Returns an association with keys: {\"PVDataObject\"=True,\"data\",\"columns\",\"data_binned\",\"bins\",\"NominalPower\",\"InputResolution\",\"Tc\",\"ReportPeriod\"}.
-Default options are: {\"DateFormat\"->{\"Day\",\"/\",\"Month\",\"/\",\"Year\",\" \",\"Hour\",\":\",\"Minute\"},\"TimeZone\"\[Rule]$TimeZone,\"Pdc_unit\"\[Rule]\"kW\",\"Pac_unit\"\[Rule]\"kW\",\"Temperature_unit\"\[Rule]\"Celcius\",\"Capacity_unit\"\[Rule]\"kW\",\
-Tc->Null,\"Isc\"\[Rule]Null,\"Voc\"\[Rule]Null,\"Ns\"\[Rule]Null,
-ReportPeriod->\"Day\",InputResolution->Automatic,DerivedMetrics\[Rule]True}. \
-Input resolution can be auto detected by taking upto the first 200 elements and check the time delta. \
-If Isc and Voc are specified, output data also contains additional columns containing Iratio and Vratio. "]
+PVDataPrep::usage = "PVDataPrep[data,columns,nominal_power] prepares a PV data object to be passed into analytical monitoring functions.
+Default options are: {\"DateFormat\"->{\"Day\",\"/\",\"Month\",\"/\",\"Year\",\" \",\"Hour\",\":\",\"Minute\"},\"TimeZone\"\[Rule]$TimeZone,\"Pdc_unit\"\[Rule]\"kW\",\"Pac_unit\"\[Rule]\"kW\",\"Tamb_unit\"\[Rule]\"Celcius\",\"Capacity_unit\"\[Rule]\"kW\"}"]
 
-Options[PVDataPrep]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},"TimeZone"->$TimeZone,"Pdc_unit"->"kW","Pac_unit"->"kW","Temperature_unit"->"Celcius","Capacity_unit"->"kW",
-Tc->Null,"Isc"->Null,"Voc"->Null,"Ns"->Null,
-ReportPeriod->"Day",InputResolution->Automatic,DerivedMetrics->True};
-
-
-
-(* ::Subsection::Closed:: *)
-(*Spectrum related*)
-
+Options[PVDataPrep]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},"TimeZone"->$TimeZone,"Pdc_unit"->"kW","Pac_unit"->"kW","Tamb_unit"->"Celcius","Capacity_unit"->"kW",Tc->Null,ReportPeriod->"Day",InputResolution->Automatic};
 
 If[ Not@ValueQ[SpecScale::usage],
 SpecScale::usage = "SpecScale[scale_][spec_] performs simple scaling of spectrum. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. "]
@@ -431,9 +346,6 @@ If[ Not@ValueQ[Photocurrent::usage],
 Photocurrent::usage = "Photocurrent[spectra] calculates (the list of) implied short circuit current from a set of spectra. 
 Photocurrent[spec_,{wMin_,wMax_}] calculates it for a given range of wavelength. "]
 
-
-(* ::Section::Closed:: *)
-(*End of initialization*)
 
 
 Begin["`Private`"];
@@ -453,84 +365,38 @@ h=6.626*10^-34;
 (*General functions*)
 
 
-(* ::Section:: *)
-(*General*)
-
-
 (* ::Subsection::Closed:: *)
-(*Language core*)
+(*DateObject handling*)
 
 
-SetAttributes[QuietCheck,{HoldAll}];
-QuietCheck[expr_,failexpr_,msgs:(_MessageName|{__MessageName}|_String)]:=Quiet[Check[expr,failexpr,msgs],msgs];
-QuietCheck[expr_,failexpr_]:=Quiet[Check[expr,failexpr]];
+ReduceDateObject[dataset_,dateFormat_:{"Month","/","Day","/","Year"," ","Hour",":","Minute",":","Second"},position_:1]:=Block[{reducedOutput,$DateStringFormat=dateFormat},
 
-
-PositionLargest[list_List] /; AllTrue[list, NumericQ] := First[FirstPosition[list, Max[list]]]
- 
-PositionLargest[list_List, n_Integer] /; AllTrue[list, NumericQ] := Take[Flatten[(Position[list, #1] & ) /@ DeleteDuplicates[TakeLargest[list, n]]], n]
- 
-PositionLargest[list_List, HoldPattern[UpTo][n_Integer]] /; AllTrue[list, NumericQ] := Take[Flatten[(Position[list, #1] & ) /@ DeleteDuplicates[TakeLargest[list, UpTo[n]]]], UpTo[n]]
-
-
-Rarest[l_List] := MinimalBy[Tally[l], Last][[All,1]]
- 
-Rarest[l_List, n_] := SortBy[MinimalBy[Tally[l], Last, n][[All,1]], FirstPosition[l, #1] & ]
-
-
-LogSpace[a_,b_,n_]:=N[10^Range[Log10@a,Log10@b,(Log10@b-Log10@a)/n]];
-
-
-MeshGrid[x_List,y_List]:={ConstantArray[x,Length[y]],Transpose@ConstantArray[Reverse@y,Length[x]]};
-MeshGridCoord[x_List,y_List]:=MapThread[N@*List,MeshGrid[x,y],2];
-
-
-FromAssociation[x_Association]:=KeyValueMap[Flatten@*List,x];
-
-
-(* ::Subsection::Closed:: *)
-(*Boolean masking*)
-
-
-pick[condition_][x_]:=Pick[x,ResourceFunction["BoolEval"][condition],1]
-SetAttributes[pick,HoldAll]
-
-
-Where[condition_,na_:Null][x_]:=Module[{booleanMask=ResourceFunction["BoolEval"][condition]},
-
-If[Dimensions@booleanMask!=Dimensions@x,
-	Message[Where::dmism,Dimensions@booleanMask,Dimensions@x];
-	Return@$Failed;
+If[dateFormat==="DateList",
+	reducedOutput=Map[MapAt[DateList,#,position]&,dataset];
 ,
-	Return@ReplacePart[x,Position[booleanMask,1]->na]
+	reducedOutput=Map[MapAt[DateString,#,position]&,dataset];
 ];
 
+Return[reducedOutput]
 ];
-SetAttributes[Where,HoldAll]
 
 
-extract[x_,pattern_]:=Extract[Replace[Position[x,pattern],{{p_Integer}}:>p]];
+ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1]:=Module[{output,convertFn},
+
+If[dateFormat===Automatic,
+	convertFn=DateObject[#,TimeZone->timezone]&;
+	,
+	convertFn=If[Head@#=!=DateObject,DateObject[DateList[{#,dateFormat}],TimeZone->timezone],DateObject[#,TimeZone->timezone]]&;
+];
+
+output=Map[MapAt[convertFn,#,position]&,dataset];
+
+Return@output;
+];
 
 
 (* ::Subsection::Closed:: *)
-(*JSON Viewer*)
-
-
-ruleListQ[{r__Rule}]=True;(*JSON won't have RuleDelayed*)ruleListQ[_]=False;
-
-formatJSON[json_]:=Switch[json,
-_?ruleListQ,(*dictionary*)
-	Column@Replace[json,HoldPattern[a_->b_]:>OpenerView[{a,formatJSON[b]}],{1}],
-_?(ArrayQ[#,_,AtomQ]&),(*AtomQ makes sure that only arrays of basic types are formatted like this,not arrays of dictionaries*)
-	TableForm[json],
-_List,(*list of non-basic types,including ragged arrays*)
-	Column[formatJSON/@json,Frame->All],
-_,(*anything else*)
-	json]
-
-
-(* ::Subsection::Closed:: *)
-(*Dataset handling (some also applies to lists/tables)*)
+(*Dataset handling*)
 
 
 (* ::Text:: *)
@@ -620,68 +486,20 @@ RenameColumn[replaceRules_List][dataset_Dataset/;ArrayDepth@dataset==2]:=KeyMap[
 
 AppendColumn[array_List, x_List] := Transpose[Append[Transpose[array], x]];
 AppendColumn[array_List, x_] := Append[#, x]& /@ array;
-AppendColumn[x_] := Function[mat,AppendColumn[mat,x]];
+AppendColumn[x_] := Function[mat,AppendColumn[mat,x]]
 
 AppendColumn[array_Dataset/;ArrayDepth@array==1, x_List,colName_String:"new_column"] := Dataset[
 Table[
 	Append[Normal[array][[i]],colName->x[[i]]]
 ,{i,Length@x}]
-];
+]
 
 AppendColumn[array_Dataset/;ArrayDepth@array==2, x_List,colName_String:"new_column"] := Module[{table=FromDataset[array,True],output},
+
 output=AppendColumn[Rest@table,x];
 output=ToDataset[output,Append[First@table,colName]]//AddIndex[#,1]&
-];
 
-AppendColumn[x_,"ToDataset",colName_String:"new_column"] := Function[dataset,AppendColumn[dataset,x,colName]];
-
-
-(* ::Subsection::Closed:: *)
-(*User convenience*)
-
-
-take[n_]:=Take[#,n]&;
-
-
-TestArray[row_,col_]:=Array[10#1+#2&,{row,col}];
-
-
-first[x_List]:=First@x;
-first[x_]:=x;
-
-
-(* ::Section:: *)
-(*Time related*)
-
-
-(* ::Subsection::Closed:: *)
-(*DateObject handling*)
-
-
-ReduceDateObject[dataset_,dateFormat_:{"Day","/","Month","/","Year"," ","Hour",":","Minute",":","Second"},position_:1]:=Module[{reducedOutput},
-
-If[dateFormat==="DateList",
-	reducedOutput=Map[MapAt[DateList,#,position]&,dataset];
-,
-	reducedOutput=Map[MapAt[DateString[#,dateFormat]&,#,position]&,dataset];
-];
-
-Return[reducedOutput]
-];
-
-
-ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1]:=Module[{output,convertFn},
-
-If[dateFormat===Automatic,
-	convertFn=DateObject[#,TimeZone->timezone]&;
-	,
-	convertFn=If[Head@#=!=DateObject,DateObject[DateList[{#,dateFormat}],TimeZone->timezone],DateObject[#,TimeZone->timezone]]&;
-];
-
-output=Map[MapAt[convertFn,#,position]&,dataset];
-
-Return@output;
-];
+]
 
 
 (* ::Subsection::Closed:: *)
@@ -732,8 +550,80 @@ Return@FromTemporalData@TimeSeriesResample[ts,timesteps,ResamplingMethod->resamp
 ];
 
 
+(* ::Subsection::Closed:: *)
+(*Boolean masking*)
+
+
+pick[condition_][x_]:=Pick[x,ResourceFunction["BoolEval"][condition],1]
+SetAttributes[pick,HoldAll]
+
+
+Where[condition_,na_:Null][x_]:=Module[{booleanMask=ResourceFunction["BoolEval"][condition]},
+
+If[Dimensions@booleanMask!=Dimensions@x,
+	Message[Where::dmism,Dimensions@booleanMask,Dimensions@x];
+	Return@$Failed;
+,
+	Return@ReplacePart[x,Position[booleanMask,1]->na]
+];
+
+];
+SetAttributes[Where,HoldAll]
+
+
+extract[x_,pattern_]:=Extract[Replace[Position[x,pattern],{{p_Integer}}:>p]];
+
+
+(* ::Subsection::Closed:: *)
+(*JSON Viewer*)
+
+
+ruleListQ[{r__Rule}]=True;(*JSON won't have RuleDelayed*)ruleListQ[_]=False;
+
+formatJSON[json_]:=Switch[json,
+_?ruleListQ,(*dictionary*)
+	Column@Replace[json,HoldPattern[a_->b_]:>OpenerView[{a,formatJSON[b]}],{1}],
+_?(ArrayQ[#,_,AtomQ]&),(*AtomQ makes sure that only arrays of basic types are formatted like this,not arrays of dictionaries*)
+	TableForm[json],
+_List,(*list of non-basic types,including ragged arrays*)
+	Column[formatJSON/@json,Frame->All],
+_,(*anything else*)
+	json]
+
+
+(* ::Subsection:: *)
+(*Language core*)
+
+
+SetAttributes[QuietCheck,{HoldAll}];
+QuietCheck[expr_,failexpr_,msgs:(_MessageName|{__MessageName}|_String)]:=Quiet[Check[expr,failexpr,msgs],msgs];
+QuietCheck[expr_,failexpr_]:=Quiet[Check[expr,failexpr]];
+
+
+PositionLargest[list_List] /; AllTrue[list, NumericQ] := First[FirstPosition[list, Max[list]]]
+ 
+PositionLargest[list_List, n_Integer] /; AllTrue[list, NumericQ] := Take[Flatten[(Position[list, #1] & ) /@ DeleteDuplicates[TakeLargest[list, n]]], n]
+ 
+PositionLargest[list_List, HoldPattern[UpTo][n_Integer]] /; AllTrue[list, NumericQ] := Take[Flatten[(Position[list, #1] & ) /@ DeleteDuplicates[TakeLargest[list, UpTo[n]]]], UpTo[n]]
+
+
+Rarest[l_List] := MinimalBy[Tally[l], Last][[All,1]]
+ 
+Rarest[l_List, n_] := SortBy[MinimalBy[Tally[l], Last, n][[All,1]], FirstPosition[l, #1] & ]
+
+
 (* ::Section:: *)
 (*Data import and manipulation*)
+
+
+(* ::Subsection::Closed:: *)
+(*User convenience*)
+
+
+take[n_]:=Take[#,n]&;
+
+
+TestArray[row_,col_]:=Array[10#1+#2&,{row,col}];
 
 
 (* ::Subsection::Closed:: *)
@@ -822,21 +712,6 @@ Return[joinedSet//Dataset]
 
 
 MergeData[list_?(MatchQ[#,{__List}]&),"Fast"]:=Flatten[{#,Rest/@{##2}}]&@@@(Pick[#,Length@#>Length@list-1]&/@GatherBy[Join@@list,First]);
-
-
-(* ::Subsection::Closed:: *)
-(*Group and map (resample)*)
-
-
-(* ::Text:: *)
-(*Similar to Pandas method of resample assuming first column is the timestamp. *)
-(*Timestamp is removed from grouped data and appear as keys in the output association: *)
-
-
-Resample[dataset_,groupBy_:"ISODate"]:=dataset//GroupBy[DateString[First[#],groupBy]&]//Map[Rest/@#&];
-
-
-Resample[dataset_,groupBy_,func_]:=dataset//GroupBy[DateString[First[#],groupBy]&]//Map[Rest/@#&]//Map[Map[func]@*Transpose];
 
 
 (* ::Subsection::Closed:: *)
@@ -990,7 +865,7 @@ Do[
 	,
 		(*periodSum=Total[periodSet[[All,2;;-1]]];*)
 		periodSum=fnSum[periodSet[[All,2;;-1]],Dimensions[periodSet][[2]]-1];
-		AppendTo[periodResults,Flatten[{DateObject[timestep],periodSum*OptionValue@Scaling}]];
+		AppendTo[periodResults,Flatten[{DateObject[timestep],periodSum}]];
 	];
 ,
 {timestep,Keys[groupedData]}];
@@ -1263,7 +1138,7 @@ If[Length@x!=0,
 		output=Total@Cases[Flatten@x,_?NumericQ];
 	];
 , (*else*)
-	If[d>1,output=Table[Missing["NoValidData"],d],output=Missing["NoValidData"]]
+	If[d>1,output=Table[Missing["DateNotFound"],d],output=Missing["DateNotFound"]]
 ];
 
 Return[output]
@@ -1364,7 +1239,7 @@ Return@output;
 ];
 
 
-(* ::Subsection::Closed:: *)
+(* ::Section::Closed:: *)
 (*Speedy post-processing of plots*)
 
 
@@ -1521,7 +1396,7 @@ AngleOfIncidence[tilt_,orientation_,sunZenith_,sunAzimuth_]:=ArcCos@AoiProjectio
 
 
 (* ::Section:: *)
-(*Misc KPIs & General*)
+(*Misc KPIs*)
 
 
 (* ::Subsection::Closed:: *)
@@ -1537,7 +1412,6 @@ AngleOfIncidence[tilt_,orientation_,sunZenith_,sunAzimuth_]:=ArcCos@AoiProjectio
 
 
 PR[power_,ratedPower_,irradiance_?(NonPositive@# || !NumericQ@#&)]:="NA";
-PR[power_?(Negative@# || !NumericQ@#&),ratedPower_,irradiance_?Positive]:="NA";
 PR[power_,ratedPower_,irradiance_?Positive]:=power/(ratedPower*irradiance/1000)//N;
 
 PRcorrT[power_,ratedPower_,irradiance_?Positive,sT_,sTC_]:=power/(ratedPower*irradiance/1000*(1-sTC*(25-sT)))//N;
@@ -1547,9 +1421,6 @@ PRcorrT[power_,ratedPower_,irradiance_?NonPositive,sT_,sTC_]:="NA";
 PRcorrW[power_,ratedPower_,irradiance_?Positive,sT_,sTC_,avgT_]:=Total[power]/Total[ratedPower*irradiance/1000*(1-sTC*(avgT-sT))]//N;
 PRcorrW[power_,ratedPower_,irradiance_?NonPositive,sT_,sTC_,avgT_]:="NA";
 
-SetAttributes[PR,Listable];
-SetAttributes[PRcorrT,Listable];
-SetAttributes[PRcorrW,Listable];
 
 
 (* ::Text:: *)
@@ -1577,7 +1448,7 @@ Append[#,PRcorrW[#[[powerCol]],ratedPower,#[[irrCol]],#[[sTCol]],sTC,avgT]]&/@ta
 
 
 (* ::Text:: *)
-(*VoltageRatio returns a ratio to expected Voc under a certain operating condition. *)
+(*VoltageRatio returns a simple ratio to Voc at STC, and a ratio to expected Voc under a certain operating condition. *)
 (*Dependence of Voc on irradiance is based on the following equation (assuming a simple one-diode model): *)
 (*Voc = (n Ns kT) / (q ln(Isc/I0)) *)
 (*= (n Ns kT) / (q ln(Isc,stc / I0 * G/1000)) *)
@@ -1585,55 +1456,26 @@ Append[#,PRcorrW[#[[powerCol]],ratedPower,#[[irrCol]],#[[sTCol]],sTC,avgT]]&/@ta
 (*Ns is number of cells (not modules) in series in a string, which is important to specify in order to correctly estimate irradiance dependence. *)
 (*n is the ideality factor in the diode model of the solar cell. *)
 (*Temperature coefficient is for Voc. *)
-(*Temperature should be in K. *)
 
 
-VoltageRatio[V_,Voc_,Gpoa_?Positive,Tmod_,Ns_,tempCoeff_:-0.003,n_:1]:=V/(Voc+Voc*tempCoeff*(Tmod-298.15)+k*Tmod*Ns*n/q*Log[Gpoa/1000]);
-VoltageRatio[V_,Voc_,Gpoa_?NonPositive,Tmod_,Ns_,tempCoeff_:-0.003,n_:1]:=0;
-
-SetAttributes[VoltageRatio,Listable];
+VoltageRatio[V_,Voc_,Gpoa_?Positive,Tmod_,Ns_,tempCoeff_:-0.003,n_:1]:={V/Voc,V/(Voc+Voc*tempCoeff*(Tmod-298.15)+k*Tmod*Ns*n/q*Log[Gpoa/1000])};
+VoltageRatio[V_,Voc_,Gpoa_?NonPositive,Tmod_,Ns_,tempCoeff_:-0.003,n_:1]:={0,0};
 
 
-VoltageRatio[V_,Voc_,Tmod_,tempCoeff_:-0.003]:=V/(Voc+Voc*tempCoeff*(Tmod-298.15)); (* simplified without irradiance correction *)
+VoltageRatio2[V_,Voc_,Gpoa_?Positive,Tmod_,tempCoeff_:-0.003]:={V/Voc,V/(Voc+Voc*tempCoeff*(Tmod-298.15))}; (* simplified without irradiance correction *)
+VoltageRatio2[V_,Voc_,Gpoa_?NonPositive,Tmod_,tempCoeff_:-0.003]:={0,0};
 
 
 (* ::Text:: *)
-(*CurrentRatio returns a ratio to expected Isc under a certain operating condition. *)
+(*CurrentRatio returns a simple ratio to Isc, and a ratio to expected Isc under a certain operating condition. *)
 
 
-CurrentRatio[current_,Isc_,Gpoa_?Positive,Tmod_,tempCoeff_:0.0005]:=current/(Gpoa/1000*(Isc+Isc*tempCoeff*(Tmod-298.15)));
-CurrentRatio[current_,Isc_,Gpoa_?NonPositive,Tmod_,tempCoeff_:0.0005]:=0;
+CurrentRatio[current_,Isc_,Gpoa_?Positive,Tmod_,tempCoeff_:0.0005]:={current/Isc,current/(Gpoa/1000*(Isc+Isc*tempCoeff*(Tmod-298.15)))};
+CurrentRatio[current_,Isc_,Gpoa_?NonPositive,Tmod_,tempCoeff_:0.0005]:={0,0};
 
 
-CurrentRatio[current_,Isc_,Gpoa_?Positive]:=current/(Gpoa/1000*Isc); (* simplified without temperature correction *)
-CurrentRatio[current_,Isc_,Gpoa_?NonPositive]:=0;
-
-SetAttributes[CurrentRatio,Listable];
-
-
-(* ::Subsection::Closed:: *)
-(*Quick conversion*)
-
-
-(* factor to multiply for converting units *)
-ConversionFactor["J->kWh"]=1/3600000;
-ConversionFactor["\:4e07\:5343\:74e6->MW"]=10;
-ConversionFactor["\:4e07\:5343\:74e6->GW"]=0.01;
-
-(* factor to multiply from sum of average power readings to energy *)
-ConversionFactor["Sum W/min->kWh"]=1/60000;
-ConversionFactor["Sum W/5min->kWh"]=1/12000;
-ConversionFactor["Sum W/10min->kWh"]=1/6000;
-ConversionFactor["Sum W/15min->kWh"]=1/4000;
-ConversionFactor["Sum W/hour->kWh"]=1/1000;
-
-(* cell measurements related units *)
-ConversionFactor["ohm*cm2->ohm*m2"]=1/10000;
-ConversionFactor["mA/cm2->A/m2"]=10;
-
-
-ConversionFactor["lookup"]=Column@{"J->kWh","\:4e07\:5343\:74e6->MW","\:4e07\:5343\:74e6->GW","Sum W/min->kWh","Sum W/5min->kWh","Sum W/10min->kWh","Sum W/15min->kWh","Sum W/hour->kWh","ohm*cm2->ohm*m2","mA/cm2->A/m2"};
-ConversionFactor@_:=Block[{},Print@"no such conversion! Default value of 1 will be used.";1];
+CurrentRatio[current_,Isc_,Gpoa_?Positive]:={current/Isc,current/(Gpoa/1000*Isc)}; (* simplified without temperature correction *)
+CurrentRatio[current_,Isc_,Gpoa_?NonPositive]:={0,0};
 
 
 (* ::Section::Closed:: *)
@@ -1699,8 +1541,6 @@ Tmod=Quiet@Check[t/.(FindRoot[t==airT+irrLv*((\[Tau]*\[Alpha])/uL)*(1-\[Eta]c[t]
 (* if cannot find the root, simply return Tmod_Estimate = Tamb+k*G *)
 Return[Tmod]
 ];
-
-SetAttributes[ModuleTemperature,Listable];
 
 
 (* ::Section::Closed:: *)
@@ -1797,18 +1637,10 @@ If[NumberQ[nominalP],
 	If[MemberQ[columns,"G"],
 		insolation={First@#,#[[2]]*60*resolution$input/3600000}&/@PeriodSum[Select[data[[All,{colIndex["Timestamp"],colIndex["G"]}]],0<#[[2]]<irradianceThreshold[[2]]&],MinDataPts->1,ReportPeriod->resolution$output];
 		
-		(* calculate with data points either with valid power readings (preferred) or valid voltage-current readings *)
-		If[MemberQ[columns,"Pdc"],
-			PRdc={First@#,#[[3]]/nominalP/#[[2]]*1000}&/@PeriodSum[
-				{#[[1]],#[[2]],If[NumericQ@#[[5]]&&NonNegative@#[[5]],#[[5]],#[[3]]*#[[4]]]}&/@
-				Select[data[[All,{colIndex["Timestamp"],colIndex["G"],colIndex["Vdc"],colIndex["Idc"],colIndex["Pdc"]}]],irradianceThreshold[[1]]<#[[2]]<irradianceThreshold[[2]]  &&  (NumericQ@#[[3]]&&NumericQ@#[[4]]&&#[[3]]>=0&&#[[4]]>=0 || NumericQ@#[[5]]&&NonNegative@#[[5]])&]
-				,MinDataPts->1,ReportPeriod->resolution$output];
-		, (*else, calculate PR with product of voltage and current*)
-			PRdc={First@#,#[[3]]/nominalP/#[[2]]*1000}&/@PeriodSum[
-				{#[[1]],#[[2]],#[[3]]*#[[4]]}&/@
-				Select[data[[All,{colIndex["Timestamp"],colIndex["G"],colIndex["Vdc"],colIndex["Idc"]}]],irradianceThreshold[[1]]<#[[2]]<irradianceThreshold[[2]]  &&  (NumericQ@#[[3]]&&NumericQ@#[[4]]&&#[[3]]>=0&&#[[4]]>=0)&]
-				,MinDataPts->1,ReportPeriod->resolution$output];
-		];
+		(* calculate with data points either with valid power readings or valid voltage-current readings *)
+		PRdc={First@#,#[[3]]/nominalP/#[[2]]*1000}&/@PeriodSum[
+		{#[[1]],#[[2]],If[NumericQ@#[[5]]&&NonNegative@#[[5]],#[[5]],#[[3]]*#[[4]]]}&/@Select[data[[All,{colIndex["Timestamp"],colIndex["G"],colIndex["Vdc"],colIndex["Idc"],colIndex["Pdc"]}]],irradianceThreshold[[1]]<#[[2]]<irradianceThreshold[[2]]&&(NumericQ@#[[3]]&&NumericQ@#[[4]]&&#[[3]]>=0&&#[[4]]>=0||NumericQ@#[[5]]&&NonNegative@#[[5]])&]
+		,MinDataPts->1,ReportPeriod->resolution$output];
 	];
 ,
 	If[MemberQ[columns,"G"],
@@ -1929,17 +1761,17 @@ AppendTo[plots,"insolation"->If[insolation=!=Null,DateListPlot[Tooltip[#,{DateOb
 
 (* ---------- report cumulative energy meter readings, if applicable -------------- *)
 If[MemberQ[columns,"cum_meter_reading"],
-	cumEnergy=PeriodSpan[data[[All,{colIndex["Timestamp"],colIndex["cum_meter_reading"]}]],MinDataPts->2,ReportPeriod->resolution$output];
-	AppendTo[outputData,"meter reading"->cumEnergy];
-	AppendTo[plots,"meter reading"->If[cumEnergy=!=Null,DateListPlot[Tooltip[#,{DateObject@First@#,Last@#}]&/@cumEnergy,PlotLabel->"meter reading",FrameLabel->{None,"yield (kWh)"},plotOptions]]];
+cumEnergy=PeriodSpan[data[[All,{colIndex["Timestamp"],colIndex["cum_meter_reading"]}]],MinDataPts->2,ReportPeriod->resolution$output];
+AppendTo[outputData,"meter reading"->cumEnergy];
+AppendTo[plots,"meter reading"->If[cumEnergy=!=Null,DateListPlot[Tooltip[#,{DateObject@First@#,Last@#}]&/@cumEnergy,PlotLabel->"meter reading",FrameLabel->{None,"yield (kWh)"},plotOptions]]];
 ];
 
 (* --------------- calculate inverter efficiency if applicable ------------------- *)
 If[powerDC=!=Null && powerAC=!=Null,
-	\[Eta]inverter=Flatten[{#,Rest/@{##2}}]&@@@(Pick[#,Length@#>1]&/@GatherBy[Join[powerDC,powerAC],First]);
-	\[Eta]inverter={First@#,#[[3]]/#[[2]]}&/@PeriodSum[Cases[\[Eta]inverter,{_,_?Positive,_}],MinDataPts->1,ReportPeriod->resolution$output];
-	AppendTo[outputData,"\[Eta]inverter"->\[Eta]inverter];
-	AppendTo[plots,"\[Eta]inverter"->If[\[Eta]inverter=!=Null,DateListPlot[Tooltip[#,{DateObject@First@#,Last@#}]&/@\[Eta]inverter,PlotLabel->"\[Eta]inverter",FrameLabel->{None,"\[Eta]"},plotOptions]]];
+\[Eta]inverter=Flatten[{#,Rest/@{##2}}]&@@@(Pick[#,Length@#>1]&/@GatherBy[Join[powerDC,powerAC],First]);
+\[Eta]inverter={First@#,#[[3]]/#[[2]]}&/@PeriodSum[Cases[\[Eta]inverter,{_,_?Positive,_}],MinDataPts->1,ReportPeriod->resolution$output];
+AppendTo[outputData,"\[Eta]inverter"->\[Eta]inverter];
+AppendTo[plots,"\[Eta]inverter"->If[\[Eta]inverter=!=Null,DateListPlot[Tooltip[#,{DateObject@First@#,Last@#}]&/@\[Eta]inverter,PlotLabel->"\[Eta]inverter",FrameLabel->{None,"\[Eta]"},plotOptions]]];
 ];
 
 Return[{outputData,plots}];
@@ -1949,8 +1781,8 @@ Return[{outputData,plots}];
 TimeSeriesInspection[data_Dataset,columns:{___String}:{"Timestamp","G","Vdc","Idc","Pdc","Vac","Iac","Pac"},opt:OptionsPattern[]]:=TimeSeriesInspection[FromDataset@data,columns,opt];
 
 
-TimeSeriesInspection[data_Association/;data["PVDataObject"],opt:OptionsPattern[]]:=TimeSeriesInspection[
-data["data"],data["columns"],opt,NominalPower->data["NominalPower"],Tc->data["Tc"],ReportPeriod->data["ReportPeriod"],InputResolution->data["InputResolution"]
+TimeSeriesInspection[data_Association/;data["PVDataObject"]]:=TimeSeriesInspection[
+data["data"],data["columns"],NominalPower->data["NominalPower"],Tc->data["Tc"],ReportPeriod->data["ReportPeriod"],InputResolution->data["InputResolution"]
 ]
 
 
@@ -1959,18 +1791,8 @@ data["data"],data["columns"],opt,NominalPower->data["NominalPower"],Tc->data["Tc
 (*Input is the OutputData from TimeSeriesInspection. *)
 
 
-TimeSeriesSummary[tsOutput_Association,timeFormat_:"ISODate"]:=With[{merged=MergeData[DeleteCases[tsOutput//Values,Null],"Fast"]},
-Grid[Append[Append[Prepend[ReduceDateObject[merged,timeFormat],Prepend[Keys@tsOutput,""]],Prepend[Rest@Total@merged,"total"]],Prepend[Rest@Mean@merged,"mean"]],Frame->All]];
-
-
-TimeSeriesSummary["Month",aggregation_:Total][tsOutput_Grid]:=With[{merged=Normal[tsOutput][[2;;-3]],titles=First@Normal@tsOutput},
-Grid[Append[Append[Prepend[merged//Resample[#,{"Year","-","Month"},aggregation]&//FromAssociation,titles],Prepend[Rest@Total@merged,"total"]],Prepend[Rest@Mean@merged,"mean"]],Frame->All]
-];
-
-
-TimeSeriesSummary["Year",aggregation_:Total][tsOutput_Grid]:=With[{merged=Normal[tsOutput][[2;;-3]],titles=First@Normal@tsOutput},
-Grid[Append[Append[Prepend[merged//Resample[#,{"Year"},aggregation]&//FromAssociation,titles],Prepend[Rest@Total@merged,"total"]],Prepend[Rest@Mean@merged,"mean"]],Frame->All]
-];
+TimeSeriesSummary[tsOutput_Association]:=With[{merged=MergeData[tsOutput//Values,"Fast"]},
+Grid[Append[Append[Prepend[ReduceDateObject[merged],Prepend[Keys@tsOutput,""]],Prepend[Rest@Total@merged,"total"]],Prepend[Rest@Mean@merged,"mean"]],Frame->All]];
 
 
 (* ::Text:: *)
@@ -2094,7 +1916,7 @@ Column[{
 
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Cross-sectional inspection*)
 
 
@@ -2119,11 +1941,10 @@ Column[{
 (*- Idc-G*)
 
 
-CrossSectionInspection[data_List?(ArrayDepth@#==2&),columns:{___String}:{"G","Vdc","Idc","Pdc","Tmod","Vac","Iac","Pac","Tamb"},opt:OptionsPattern[]]:=Module[{colIndex,nominalP,PRdc=Null,PRac=Null,\[Eta]inverter,dcPlots=<||>,acPlots=<||>,tempData,tempData2,defaultOptions,userOptions},
+CrossSectionInspection[data_List?(ArrayDepth@#==2&),columns:{___String}:{"G","Vdc","Idc","Pdc","Tmod","Vac","Iac","Pac","Tamb"},opt:OptionsPattern[]]:=Module[{colIndex,nominalP,PRdc=Null,PRac=Null,\[Eta]inverter,dcPlots=<||>,acPlots=<||>,tempData,tempData2},
 nominalP=OptionValue[NominalPower];
 
-defaultOptions={ImageSize->Large,Frame->{{True,True},{True,True}},FrameStyle->Directive[Black,Thickness[0.003]],FrameTicks->{{Automatic,None},{Automatic,None}},GridLines->Automatic,LabelStyle->{FontFamily->"Helvetica",FontSize->18,FontWeight->Bold,FontColor->Black},ImageMargins->15};
-userOptions=OptionValue@PlotOptions;
+SetOptions[ListPlot,ImageSize->Large,Frame->{{True,True},{True,True}},FrameStyle->Directive[Black,Thickness[0.003]],FrameTicks->{{Automatic,None},{Automatic,None}},GridLines->Automatic,LabelStyle->{FontFamily->"Helvetica",FontSize->18,FontWeight->Bold,FontColor->Black},ImageMargins->15];
 
 If[Length[columns]!=Dimensions[data][[2]],
 	Print["error: columns are not properly defined"];
@@ -2138,15 +1959,11 @@ If[MemberQ[columns,"G"],
 (* ------------------------- plots involving DC power --------------------------------*)
 If[MemberQ[columns,"Pdc"],
 	(*DC power-irradiance plot*)
-	AppendTo[dcPlots,"Pdc-G"->
-		ListPlot[data[[All,{colIndex["G"],colIndex["Pdc"]}]],PlotLabel->"Pdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"},userOptions,defaultOptions]
-	];
+	AppendTo[dcPlots,"Pdc-G"->ListPlot[data[[All,{colIndex["G"],colIndex["Pdc"]}]],PlotLabel->"Pdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"}]];
 
 	If[NumberQ[nominalP],
 		(*Yf_dc-Yr plot*)
-		AppendTo[dcPlots,"Yf_dc-Yr"->
-			ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@data[[All,{colIndex["G"],colIndex["Pdc"]}]],PlotLabel->"Yf_dc-Yr",FrameLabel->{"reference yield","DC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}],userOptions,defaultOptions]
-		];
+		AppendTo[dcPlots,"Yf_dc-Yr"->ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@data[[All,{colIndex["G"],colIndex["Pdc"]}]],PlotLabel->"Yf_dc-Yr",FrameLabel->{"reference yield","DC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}]]];
 
 		(*calculate PR_dc*)
 		PRdc=PR[data[[All,colIndex["Pdc"]]],nominalP,data[[All,colIndex["G"]]]];
@@ -2157,15 +1974,11 @@ If[MemberQ[columns,"Pdc"],
 	(*alternative DC power-irradiance and Yf_dc-Yr plot and PR_dc calculation using Vdc and Idc*)
 	If[MemberQ[columns,"Vdc"]&&MemberQ[columns,"Idc"],
 		tempData={#[[1]],#[[2]]*#[[3]]}&/@(data[[All,{colIndex["G"],colIndex["Vdc"],colIndex["Idc"]}]]//Cases[{_?Positive,_?Positive,_?Positive}]);
-		AppendTo[dcPlots,"Pdc-G"->
-			ListPlot[tempData,PlotLabel->"Pdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"},userOptions,defaultOptions]
-		];
+		AppendTo[dcPlots,"Pdc-G"->ListPlot[tempData,PlotLabel->"Pdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"}]];
 
 		If[NumberQ[nominalP],
-			AppendTo[dcPlots,"Yf_dc-Yr"->
-				ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@tempData,PlotLabel->"Yf_dc-Yr",FrameLabel->{"reference yield","DC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}],userOptions,defaultOptions]
-			];
-		PRdc=PR[If[#[[1]]>0&&#[[2]]>0,#[[1]]*#[[2]],0]&/@data[[All,{colIndex["Vdc"],colIndex["Idc"]}]],nominalP,data[[All,colIndex["G"]]]];
+			AppendTo[dcPlots,"Yf_dc-Yr"->ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@tempData,PlotLabel->"Yf_dc-Yr",FrameLabel->{"reference yield","DC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}]]];
+		PRdc=PR[tempData[[All,2]],nominalP,tempData[[All,1]]];
 		];
 	];
 ];
@@ -2173,38 +1986,26 @@ If[MemberQ[columns,"Pdc"],
 (* ------------------------- plots involving AC power --------------------------------*)
 If[MemberQ[columns,"Pac"],
 	(*AC power-irradiance plot*)
-	AppendTo[acPlots,"Pac-G"->
-		ListPlot[data[[All,{colIndex["G"],colIndex["Pac"]}]],PlotLabel->"Pac-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","AC power"},userOptions,defaultOptions]
-	];
+	AppendTo[acPlots,"Pac-G"->ListPlot[data[[All,{colIndex["G"],colIndex["Pac"]}]],PlotLabel->"Pac-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","AC power"}]];
 
 	If[MemberQ[columns,"Pdc"],
 		(*Pac-Pdc plot*)
-		AppendTo[acPlots,"Pac-Pdc"->
-			ListPlot[data[[All,{colIndex["Pdc"],colIndex["Pac"]}]],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"},userOptions,defaultOptions]
-		];
+		AppendTo[acPlots,"Pac-Pdc"->ListPlot[data[[All,{colIndex["Pdc"],colIndex["Pac"]}]],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"}]];
 
 		(*inverter efficiency-irradiance plot*)
-		AppendTo[acPlots,"eff_inverter-G"->
-			ListPlot[{#[[1]],#[[2]]/#[[3]]}&/@Cases[data[[All,{colIndex["G"],colIndex["Pac"],colIndex["Pdc"]}]],{__?Positive}],
-			PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]},userOptions,defaultOptions]
-		];
+		AppendTo[acPlots,"eff_inverter-G"->ListPlot[{#[[1]],#[[2]]/#[[3]]}&/@Cases[data[[All,{colIndex["G"],colIndex["Pac"],colIndex["Pdc"]}]],{__?Positive}],PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]}]];
 	];
 
 	If[NumberQ[nominalP],
 		(*Yf_ac-Yr plot*)
-		AppendTo[acPlots,"Yf_ac-Yr"->
-			ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@data[[All,{colIndex["G"],colIndex["Pac"]}]],
-			PlotLabel->"Yf_ac-Yr",FrameLabel->{"reference yield","AC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}],userOptions,defaultOptions]
-		];
+		AppendTo[acPlots,"Yf_ac-Yr"->ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@data[[All,{colIndex["G"],colIndex["Pac"]}]],PlotLabel->"Yf_ac-Yr",FrameLabel->{"reference yield","AC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}]]];
 
 		(*calculate PR_ac*)
 		PRac=PR[data[[All,colIndex["Pac"]]],nominalP,data[[All,colIndex["G"]]]];
 
 		(*Vac-Yf_ac plot*)
 		If[MemberQ[columns,"Vac"],
-			AppendTo[acPlots,"Vac-Yf_ac"->
-				ListPlot[{#[[2]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Pac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC final yield","AC voltage (V)"},userOptions,defaultOptions]
-			];
+			AppendTo[acPlots,"Vac-Yf_ac"->ListPlot[{#[[2]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Pac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC final yield","AC voltage (V)"}]];
 		];
 	];
 
@@ -2214,45 +2015,29 @@ If[MemberQ[columns,"Pac"],
 	If[MemberQ[columns,"Vac"]&&MemberQ[columns,"Iac"],
 		(*alternative AC power-irradiance plot, tempData={G,Pac}*)
 		tempData={#[[1]],#[[2]]*#[[3]]}&/@(data[[All,{colIndex["G"],colIndex["Vac"],colIndex["Iac"]}]]//Cases[{_?Positive,_?Positive,_?Positive}]);
-		AppendTo[acPlots,"Pac-G"->
-			ListPlot[tempData,PlotLabel->"Pac-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"},userOptions,defaultOptions]
-		];
+		AppendTo[acPlots,"Pac-G"->ListPlot[tempData,PlotLabel->"Pac-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC power"}]];
 		If[MemberQ[columns,"Pdc"],
 			(*alternative Pac-Pdc plot*)
-			AppendTo[acPlots,"Pac-Pdc"->
-				ListPlot[{data[[All,colIndex["Pdc"]]],tempData[[All,2]]}\[Transpose],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"},userOptions,defaultOptions]
-			];
+			AppendTo[acPlots,"Pac-Pdc"->ListPlot[{data[[All,colIndex["Pdc"]]],tempData[[All,2]]}\[Transpose],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"}]];
 			(*alternative inverter efficiency-irradiance plot*)
-			AppendTo[acPlots,"eff_inverter-G"->
-				ListPlot[{#[[3]]*#[[2]]/#[[4]],#[[1]]}&/@Cases[data[[All,{colIndex["G"],colIndex["Vac"],colIndex["Iac"],colIndex["Pdc"]}]],{__?Positive}],
-				PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]},userOptions,defaultOptions]
-			];
+			AppendTo[acPlots,"eff_inverter-G"->ListPlot[{#[[3]]*#[[2]]/#[[4]],#[[1]]}&/@Cases[data[[All,{colIndex["G"],colIndex["Vac"],colIndex["Iac"],colIndex["Pdc"]}]],{__?Positive}],PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]}]];
 		,
 			If[MemberQ[columns,"Vdc"]&&MemberQ[columns,"Idc"],
 				tempData2=data[[All,colIndex["Vdc"]]]*data[[All,colIndex["Idc"]]];
 				(*alternative Pac-Pdc plot*)
-				AppendTo[acPlots,"Pac-Pdc"->
-					ListPlot[{tempData2,tempData[[All,2]]}\[Transpose],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"},userOptions,defaultOptions]
-				];
+				AppendTo[acPlots,"Pac-Pdc"->ListPlot[{tempData2,tempData[[All,2]]}\[Transpose],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"}]];
 				(*alternative inverter efficiency-irradiance plot*)
-				AppendTo[acPlots,"eff_inverter-G"->
-					ListPlot[{#[[2]]/#[[3]],#[[1]]}&/@Cases[Join[tempData,List@tempData2,2],{__?Positive}],
-					PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]},userOptions,defaultOptions]
-				];
+				AppendTo[acPlots,"eff_inverter-G"->ListPlot[{#[[2]]/#[[3]],#[[1]]}&/@Cases[Join[tempData,List@tempData2,2],{__?Positive}],PlotLabel->"eff_inverter-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","inverter efficiency"},Epilog->{Thick,Magenta,Line[{{-100,1},{1500,1}}]}]];
 			];
 		];
 
 		If[NumberQ[nominalP],
 			(*alternative Yf_ac-Yr plot*)
-			AppendTo[dcPlots,"Yf_ac-Yr"->
-				ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@tempData,PlotLabel->"Yf_ac-Yr",FrameLabel->{"reference yield","AC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}],userOptions,defaultOptions]
-			];
+			AppendTo[dcPlots,"Yf_ac-Yr"->ListPlot[{#[[1]]/1000,#[[2]]/nominalP}&/@tempData,PlotLabel->"Yf_ac-Yr",FrameLabel->{"reference yield","AC final yield"},Epilog->Line[{{0,0},{1.5,1.5}}]]];
 			(*alternative PRac calculation*)
 			PRac=PR[tempData[[All,2]],nominalP,tempData[[All,1]]];
 			(*alternative Vac-Yf_ac plot*)
-			AppendTo[acPlots,"Vac-Yf_ac"->
-				ListPlot[{#[[2]]*#[[3]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Iac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC voltage (V)","AC final yield"},userOptions,defaultOptions]
-			];
+			AppendTo[acPlots,"Vac-Yf_ac"->ListPlot[{#[[2]]*#[[3]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Iac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC voltage (V)","AC final yield"}]];
 		];
 	];
 ];
@@ -2261,44 +2046,32 @@ If[MemberQ[columns,"Pac"],
 If[MemberQ[columns,"Tmod"],
 	(*Vdc-Tmod plot*)
 	If[MemberQ[columns,"Vdc"],
-		AppendTo[dcPlots,"Vdc-Tmod"->
-			ListPlot[data[[All,{colIndex["Tmod"],colIndex["Vdc"]}]],PlotLabel->"Vdc-Tmod",FrameLabel->{"module temperature","DC voltage"},userOptions,defaultOptions]
-		];
+		AppendTo[dcPlots,"Vdc-Tmod"->ListPlot[data[[All,{colIndex["Tmod"],colIndex["Vdc"]}]],PlotLabel->"Vdc-Tmod",FrameLabel->{"module temperature","DC voltage"}]];
 	];
 
 	(*PR-Tmod plot*)
 	If[PRdc=!=Null,
-		AppendTo[dcPlots,"PRdc-Tmod"->
-			ListPlot[{data[[All,colIndex["Tmod"]]],PRdc}\[Transpose],PlotLabel->"PRdc-Tmod",FrameLabel->{"module temperature","PR_dc"},userOptions,defaultOptions]
-		];
+		AppendTo[dcPlots,"PRdc-Tmod"->ListPlot[{data[[All,colIndex["Tmod"]]],PRdc}\[Transpose],PlotLabel->"PRdc-Tmod",FrameLabel->{"module temperature","PR_dc"}]];
 	];
 	If[PRac=!=Null,
-		AppendTo[acPlots,"PRac-Tmod"->
-			ListPlot[{data[[All,colIndex["Tmod"]]],PRac}\[Transpose],PlotLabel->"PRac-Tmod",FrameLabel->{"module temperature","PR_ac"},userOptions,defaultOptions]
-		];
+		AppendTo[acPlots,"PRac-Tmod"->ListPlot[{data[[All,colIndex["Tmod"]]],PRac}\[Transpose],PlotLabel->"PRac-Tmod",FrameLabel->{"module temperature","PR_ac"}]];
 	];
 
 	(*(Tmod-Tamb)-Yr plot*)
 	If[MemberQ[columns,"Tamb"],
-		AppendTo[dcPlots,"delta_Tmod_Tamb-Yr"->
-			ListPlot[{#[[2]]-#[[3]],#[[1]]/1000}&/@data[[All,{colIndex["G"],colIndex["Tmod"],colIndex["Tamb"]}]],PlotLabel->"delta_Tmod_Tamb-Yr",FrameLabel->{"reference yield","Tmod-Tamb"},userOptions,defaultOptions]
-		];
+		AppendTo[dcPlots,"delta_Tmod_Tamb-Yr"->ListPlot[{#[[2]]-#[[3]],#[[1]]/1000}&/@data[[All,{colIndex["G"],colIndex["Tmod"],colIndex["Tamb"]}]],PlotLabel->"delta_Tmod_Tamb-Yr",FrameLabel->{"reference yield","Tmod-Tamb"}]];
 	];
 ];
 
 (* ------------------------- others --------------------------------*)
 If[MemberQ[columns,"Vdc"],
 	(*Vdc-irradiance plot*)
-	AppendTo[dcPlots,"Vdc-G"->
-		ListPlot[data[[All,{colIndex["G"],colIndex["Vdc"]}]],PlotLabel->"Vdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC voltage (V)"},userOptions,defaultOptions]
-	];
+	AppendTo[dcPlots,"Vdc-G"->ListPlot[data[[All,{colIndex["G"],colIndex["Vdc"]}]],PlotLabel->"Vdc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC voltage (V)"}]];
 ];
 
 If[MemberQ[columns,"Idc"],
 	(*Idc-irradiance plot*)
-	AppendTo[dcPlots,"Idc-G"->
-		ListPlot[data[[All,{colIndex["G"],colIndex["Idc"]}]],PlotLabel->"Idc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC current (A)"},userOptions,defaultOptions]
-	];
+	AppendTo[dcPlots,"Idc-G"->ListPlot[data[[All,{colIndex["G"],colIndex["Idc"]}]],PlotLabel->"Idc-G",FrameLabel->{"irradiance (W/\!\(\*SuperscriptBox[\(m\), \(2\)]\))","DC current (A)"}]];
 ];
 
 ,
@@ -2306,21 +2079,15 @@ If[MemberQ[columns,"Idc"],
 Print["warning: no irradiance data present"];
 If[MemberQ[columns,"Tmod"]&&MemberQ[columns,"Vdc"],
 	(*Vdc-Tmod plot*)
-	AppendTo[dcPlots,"Vdc-Tmod"->
-		ListPlot[data[[All,{colIndex["Vdc"],colIndex["Tmod"]}]],PlotLabel->"Vdc-Tmod",FrameLabel->{"module temperature","DC voltage (V)"},userOptions,defaultOptions]
-	];
+	AppendTo[dcPlots,"Vdc-Tmod"->ListPlot[data[[All,{colIndex["Vdc"],colIndex["Tmod"]}]],PlotLabel->"Vdc-Tmod",FrameLabel->{"module temperature","DC voltage (V)"}]];
 ];
 
 If[MemberQ[columns,"Pac"]&&MemberQ[columns,"Vac"]&&NumberQ[nominalP],
-	AppendTo[acPlots,"Vac-Yf_ac"->
-		ListPlot[{#[[2]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Pac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC yield","AC voltage"},userOptions,defaultOptions]
-	];
+	AppendTo[acPlots,"Vac-Yf_ac"->ListPlot[{#[[2]]/nominalP,#[[1]]}&/@data[[All,{colIndex["Vac"],colIndex["Pac"]}]],PlotLabel->"Vac-Yf_ac",FrameLabel->{"AC yield","AC voltage"}]];
 ];
 
 If[MemberQ[columns,"Pac"]&&MemberQ[columns,"Pdc"],
-	AppendTo[acPlots,"Pac-Pdc"->
-		ListPlot[data[[All,{colIndex["Pdc"],colIndex["Pac"]}]],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"},userOptions,defaultOptions]
-	];
+	AppendTo[acPlots,"Pac-Pdc"->ListPlot[data[[All,{colIndex["Pdc"],colIndex["Pac"]}]],PlotLabel->"Pac-Pdc",FrameLabel->{"DC power","AC power"}]];
 ];
 
 ];
@@ -2332,21 +2099,18 @@ Return[acPlots~Join~dcPlots]
 CrossSectionInspection[data_Dataset,columns:{___String}:{"G","Vdc","Idc","Pdc","Tmod","Vac","Iac","Pac","Tamb"},opt:OptionsPattern[]]:=CrossSectionInspection[FromDataset@data,columns,opt];
 
 
-CrossSectionInspection[data_Association/;data["PVDataObject"],opt:OptionsPattern[]]:=CrossSectionInspection[data["data"],data["columns"],opt,NominalPower->data["NominalPower"]];
+CrossSectionInspection[data_Association/;data["PVDataObject"]]:=CrossSectionInspection[data["data"],data["columns"],NominalPower->data["NominalPower"]];
 
 
-CrossSectionInspection[data_Association/;data["PVDataObject"],bin_,opt:OptionsPattern[]]:=CrossSectionInspection[data["data_binned"]@bin,data["columns"],opt,NominalPower->data["NominalPower"]];
-
-
-CrossSectionInspection[data_Association/;data["PVDataObject"],"ZoomIn",groupBy_:{"Year","-","Month","-","Day"},opt:OptionsPattern[]]:=With[{groupData=GroupBy[data["data"],DateString[#//extract[data["columns"],"Timestamp"],groupBy]&]},
+CrossSectionInspection[data_Association/;data["PVDataObject"],"ZoomIn",groupBy_:{"Year","-","Month","-","Day"}]:=With[{groupData=GroupBy[data["data"],DateString[#//extract[data["columns"],"Timestamp"],groupBy]&]},
 {
 Keys@groupData,
-CrossSectionInspection[groupData[#],data["columns"],opt,NominalPower->data["NominalPower"]]&
+CrossSectionInspection[groupData[#],data["columns"],NominalPower->data["NominalPower"]]&
 }
 ];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Helper functions*)
 
 
@@ -2355,7 +2119,7 @@ CrossSectionInspection[groupData[#],data["columns"],opt,NominalPower->data["Nomi
 (*Function converts timestamps to DateObjects, auto detect time resolution, and pass on all specified options. *)
 
 
-PVDataPrep[data_List?(ArrayDepth@#==2&),Shortest[columns:_:{"Timestamp","G","Vdc","Idc","Pdc","Tmod","Vac","Iac","Pac","Tamb"}],nominalP:_?NumericQ:Null,groupBy:_:"Off",opt:OptionsPattern[]]:=Module[{self=<|"PVDataObject"->True|>,dataOut,colIndex,inputResolution,deltas,addColumns={},Isc=OptionValue@"Isc",Voc=OptionValue@"Voc",Ns=OptionValue@"Ns",groupData=<||>},
+PVDataPrep[data_List?(ArrayDepth@#==2&),Shortest[columns:_:{"Timestamp","G","Vdc","Idc","Pdc","Tmod","Vac","Iac","Pac","Tamb"}],nominalP:_?NumericQ:Null,groupBy:_:{"Year","-","Month","-","Day"},opt:OptionsPattern[]]:=Module[{self=<|"PVDataObject"->True|>,dataOut,colIndex,inputResolution,groupData},
 
 If[Length[columns]!=Dimensions[data][[2]],
 	Print["error: columns are not properly defined"];
@@ -2373,64 +2137,22 @@ If[MemberQ[columns,"Timestamp"],
 ];
 
 (* binned data *)
-If[groupBy=!="Off",
-	groupData=GroupBy[dataOut,groupBy]
-];
+(*groupData=GroupBy[dataOut,DateString[#[[colIndex["Timestamp"]]],groupBy]&];*)
 
 (* standardize units *)
 If[MatchQ[OptionValue@"Pdc_unit","kW"|"kw"]&&MemberQ[columns,"Pdc"],dataOut[[All,colIndex["Pdc"]]]*=1000;];
 If[MatchQ[OptionValue@"Pac_unit","kW"|"kw"]&&MemberQ[columns,"Pac"],dataOut[[All,colIndex["Pac"]]]*=1000;];
-If[MatchQ[OptionValue@"Temperature_unit","K"|"Kelvin"|"kelvin"]&&MemberQ[columns,"Tamb"],dataOut[[All,colIndex["Tamb"]]]-=273.15;];
+If[MatchQ[OptionValue@"Tamb_unit","K"|"Kelvin"|"kelvin"]&&MemberQ[columns,"Tamb"],dataOut[[All,colIndex["Tamb"]]]-=273.15;];
 
 (* auto detect input resolution *)
 inputResolution=OptionValue@InputResolution;
-If[inputResolution===Automatic,
-	deltas=Differences@Take[dataOut[[All,colIndex["Timestamp"]]],UpTo@200];
-	With[{tally=Tally@deltas},
-	If[Length@tally>1,
-		If[Divide@@Sort[tally[[All,2]]][[{1,-1}]]>0.05,
-			Print@"warning: time series not regularly spaced. ";
-		];
-	];
-	];
-	inputResolution=QuantityMagnitude[First@Commonest@deltas,"Minutes"];
-];
-
-(* under construction: calculated derived metrics: PR, Iratio, Vratio, Tmod (calculate from Tamb and G if no measurement present) *)
-If[OptionValue@DerivedMetrics,
-	(* Tmod *)
-	If[ContainsAll[columns,{"G","Tamb"}] && !MemberQ[columns,"Tmod"],
-		dataOut=AppendColumn[dataOut,ModuleTemperature[dataOut[[All,colIndex["Tamb"]]],dataOut[[All,colIndex["G"]]]]];
-		AppendTo[addColumns,"Tmod"];
-	];
-	
-	(* Iratio *)
-	Which[
-	ContainsAll[columns,{"G","Idc"}] && Isc=!=Null,
-		dataOut=AppendColumn[dataOut,CurrentRatio[dataOut[[All,colIndex["Idc"]]],Isc,dataOut[[All,colIndex["G"]]]]];
-		AppendTo[addColumns,"Iratio"];,
-	ContainsAll[columns,{"G","Idc","Tmod"}] && Isc=!=Null, (* apply temperature correction only if measured Tmod is supplied *)
-		dataOut=AppendColumn[dataOut,CurrentRatio[dataOut[[All,colIndex["Idc"]]],Isc,dataOut[[All,colIndex["G"]]],dataOut[[All,colIndex["Tmod"]]]+273.15]];
-		AppendTo[addColumns,"Iratio"];
-	];
-	
-	(* Vratio *)
-	Which[
-	ContainsAll[columns,{"Tmod","Vdc"}] && Voc=!=Null,
-		dataOut=AppendColumn[dataOut,VoltageRatio[dataOut[[All,colIndex["Vdc"]]],Voc,dataOut[[All,colIndex["Tmod"]]]+273.15]];
-		AppendTo[addColumns,"Vratio"];,
-	ContainsAll[columns,{"G","Vdc","Tmod"}] && Voc=!=Null && Ns=!=Null, 
-		dataOut=AppendColumn[dataOut,VoltageRatio[dataOut[[All,colIndex["Vdc"]]],Voc,dataOut[[All,colIndex["G"]]],dataOut[[All,colIndex["Tmod"]]]+273.15,Ns]];
-		AppendTo[addColumns,"Vratio"];
-	];
-	
-];
+If[inputResolution===Automatic,inputResolution=QuantityMagnitude[First@Commonest@Differences@Take[dataOut[[All,colIndex["Timestamp"]]],UpTo@200],"Minutes"];];
 
 (* construct object *)
 AppendTo[self,"data"->dataOut];
-AppendTo[self,"columns"->columns~Join~addColumns];
-AppendTo[self,"data_binned"->groupData];
-AppendTo[self,"bins"->Keys@groupData];
+AppendTo[self,"columns"->columns];
+(*AppendTo[self,"data_binned"\[Rule]groupData];
+AppendTo[self,"bins"\[Rule]Keys@groupData];*)
 AppendTo[self,"NominalPower"->If[MatchQ[OptionValue@"Capacity_unit","kW"|"kw"]&&nominalP=!=Null,nominalP*1000,nominalP]];
 AppendTo[self,"InputResolution"->inputResolution];
 AppendTo[self,"Tc"->OptionValue@Tc];
