@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*General functions*)
 
 
@@ -60,9 +60,7 @@ FromAssociation::usage = "FromAssociation[x] converts an association to a flat t
 
 
 If[ Not@ValueQ[ToDataset::usage],
-ToDataset::usage = "ToDataset[table,titles_:\"Default\",index_:None] performs quick conversion of a flat table to a dataset assuming first row as titles (column names). \
-When table does not contain column names, the title row can be supplied as the second argument. \
-Index can be specified, in which case should be given as an integer indicating which column is used as index."]
+ToDataset::usage = "Quick conversion of a table to a dataset."]
 
 If[ Not@ValueQ[FromDataset::usage],
 FromDataset::usage = "FromDataset[dataset,showHeader:False] convert a dataset to a table."]
@@ -87,10 +85,6 @@ AppendColumn::usage = "AppendColumn[array_List, x] appends x to array as a colum
 AppendColumn[array_Dataset, x_List,colName:\"new_column\"] appends column to dataset with a column name. 
 AppendColumn[x] and AppendColumn[x,\"ToDataset\",colName:\"new_column\"] are operator forms to be applied to array and Dataset respectively. "];
 
-If[ Not@ValueQ[CalcFirstOrderDiff::usage],
-CalcFirstOrderDiff::usage = "CalcFirstOrderDiff[dataset,col:{__String}:All,inPercentage:{__String}:None] calculates first order differences for selected columns in col and merge with original dataset. \
-inPercentage specifies columns for which FOD is calculated in percentage. FOD is always associated with the end point of each (time) step (each row is one step). "];
-
 
 If[ Not@ValueQ[take::usage],
 take::usage = "Operator form of function Take."];
@@ -101,9 +95,6 @@ TestArray::usage = "TestArray[row_,col_] generates a row by col position numbere
 If[ Not@ValueQ[first::usage],
 first::usage = "Copy of function First except when encountering input that is not a list, returns input unchanged. \
 This is useful for mapping First to outputs from a listable function but not sure whether there are multiple outputs or only one."];
-
-If[ Not@ValueQ[GroupbyDay::usage],
-GroupbyDay::usage = "Operator form of function GroupBy to group by date of timestamp. Timestamp needs to be the first column. "];
 
 
 (* ::Subsection::Closed:: *)
@@ -645,33 +636,6 @@ output=ToDataset[output,Append[First@table,colName]]//AddIndex[#,1]&
 AppendColumn[x_,"ToDataset",colName_String:"new_column"] := Function[dataset,AppendColumn[dataset,x,colName]];
 
 
-CalcFirstOrderDiff[ds_Dataset,col:{__String}:All,inPercentage:{__String}:None]:=Module[{colNames=DatasetColumns@ds,colIndex,colToDiff,colDiffIndex,diff,table=FromDataset@ds,output,outputCols},
-colIndex=AssociationThread[colNames->Range[Length[colNames]]];
-
-If[col===All,colToDiff=DatasetColumns@ds;,colToDiff=col;];
-colDiffIndex=AssociationThread[colToDiff->Range[Length[colToDiff]]];
-
-diff=Differences@table[[All,colIndex/@colToDiff]]; (* first order difference starting from the second entry *)
-
-If[inPercentage=!=None,
-	Do[
-		Quiet[diff[[All,colDiffIndex[i]]]/=table[[;;-2,colIndex[i]]]];
-	,
-	{i,Intersection[colToDiff,inPercentage]}
-	];
-];
-
-colToDiff=#<>"_D"&/@colToDiff;
-colToDiff=colToDiff/.Thread[(#<>"_D"&/@inPercentage)->(#<>"_Din%"&/@inPercentage)];
-
-output=Join[Rest@table,diff,2];
-outputCols=colNames~Join~colToDiff;
-
-Return[ToDataset[output,outputCols]];
-
-];
-
-
 (* ::Subsection::Closed:: *)
 (*User convenience*)
 
@@ -684,9 +648,6 @@ TestArray[row_,col_]:=Array[10#1+#2&,{row,col}];
 
 first[x_List]:=First@x;
 first[x_]:=x;
-
-
-GroupbyDay=GroupBy[DateString[First@#,"ISODate"]&];
 
 
 (* ::Section:: *)
@@ -1332,7 +1293,7 @@ Return[output]
 
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Plotting related*)
 
 
@@ -1390,17 +1351,13 @@ If[ArrayDepth@data==3,
 
 HighlightData[data_,logic_,positions_:"default",color_:Red]:=Module[{highlightPos,output},
 
-Which[
-Head@data==List && ArrayDepth@data==2 || Head@data==Dataset && ArrayDepth@data==1,
-	If[positions==="default",
-		highlightPos=Rest[List/@Range@Last@Dimensions@data];
-	,
-		highlightPos=positions;
-	];
+Which[ArrayDepth@data==2,
+If[positions==="default",highlightPos=Rest[List/@Range@Last@Dimensions@data];,highlightPos=positions;];
 
-	output=If[Check[logic@#,False],With[{color2=If[Head@color===Function,color@#,color]},MapAt[Style[#,color2]&,#,highlightPos]],#]&/@data;,
-Head@data==List && ArrayDepth@data==1,
-	output=If[Check[logic@#,False],Style[#,color],#]&/@data;
+output=If[Check[logic@#,False],With[{color2=If[Head@color===Function,color@#,color]},MapAt[Style[#,color2]&,#,highlightPos]],#]&/@data;
+,
+ArrayDepth@data==1,
+output=If[Check[logic@#,False],Style[#,color],#]&/@data;
 ];
 
 Return@output;
@@ -2415,6 +2372,11 @@ If[MemberQ[columns,"Timestamp"],
 	];
 ];
 
+(* binned data *)
+If[groupBy=!="Off",
+	groupData=GroupBy[dataOut,groupBy]
+];
+
 (* standardize units *)
 If[MatchQ[OptionValue@"Pdc_unit","kW"|"kw"]&&MemberQ[columns,"Pdc"],dataOut[[All,colIndex["Pdc"]]]*=1000;];
 If[MatchQ[OptionValue@"Pac_unit","kW"|"kw"]&&MemberQ[columns,"Pac"],dataOut[[All,colIndex["Pac"]]]*=1000;];
@@ -2462,11 +2424,6 @@ If[OptionValue@DerivedMetrics,
 		AppendTo[addColumns,"Vratio"];
 	];
 	
-];
-
-(* binned data *)
-If[groupBy=!="Off",
-	groupData=GroupBy[dataOut,groupBy]
 ];
 
 (* construct object *)
