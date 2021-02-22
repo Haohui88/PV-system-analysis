@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*General functions*)
 
 
@@ -68,7 +68,7 @@ If[ Not@ValueQ[FromDataset::usage],
 FromDataset::usage = "FromDataset[dataset,showHeader:False] convert a dataset to a table."]
 
 If[ Not@ValueQ[AddIndex::usage],
-AddIndex::usage = "AddIndex[dataset,index:0] adds index to a flat dataset by converting the n^th column specified by 'index' (0 means natural indexing). Note that duplicate values will be overwritten if any column is used as index. "]
+AddIndex::usage = "AddIndex[dataset,index:0,drop_:True] adds index to a flat dataset by converting the n^th column specified by 'index' (0 means natural indexing). Note that duplicate values will be overwritten if any column is used as index. "]
 
 If[ Not@ValueQ[DropIndex::usage],
 DropIndex::usage = "Remove index into flat dataset. "]
@@ -159,10 +159,13 @@ RunningAverage::usage = "This function select non-missing and daytime data, obta
 Options[RunningAverage]={ReportPeriod->Quantity[10,"Minutes"]};
 
 If[ Not@ValueQ[DataSummary::usage],
-DataSummary::usage = "Simple summary of data shape."]
+DataSummary::usage = "Simple summary of data shape."];
 
 If[ Not@ValueQ[GetNASAPowerData::usage],
-GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location."]
+GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location."];
+
+If[ Not@ValueQ[DatasetToPython::usage],
+DatasetToPython::usage = "DatasetToPython[session,var_Dataset,targetVarName_String] passes a dataset to python session as a pandas dataframe. Must have pandas imported in the python session. "];
 
 
 (* ::Subsection::Closed:: *)
@@ -587,10 +590,10 @@ Which[ArrayDepth@dataset==1 && d!=1,
 (*Add index to a flat dataset. *)
 
 
-AddIndex[dataset_Dataset/;ArrayDepth@dataset==1,index_:0]:=If[index==0,
+AddIndex[dataset_Dataset/;ArrayDepth@dataset==1,index_:0,drop_:True]:=If[index==0,
 MapIndexed[First@#2->#1&,dataset]//Normal//Association//Dataset
 ,
-dataset[All,#[[index]]->Drop[#,{index}]&]//Normal//Association//Dataset
+dataset[All,#[[index]]->If[drop,Drop[#,{index}],#]&]//Normal//Association//Dataset
 ];
 
 
@@ -988,8 +991,30 @@ Return[Cases[{output},{___,{"-END HEADER-"},x___}->x]];
 ];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Pass data to Python*)
+
+
+DatasetToPython[session_,var_Dataset,targetVarName_String]:=Module[{columns,x,dict},
+
+x=FromDataset[var,True];
+columns=First@x;
+x=Rest@x//Transpose;
+
+dict=ToString@Table[pyExpConstructor[columns[[i]]]<>":"<>StringReplace[ToString[pyExpConstructor/@x[[i]]],{"{"->"[","}"->"]"}],{i,Length@x}];
+
+ExternalValue[session,targetVarName<>"=pd.DataFrame("<>dict<>")"];
+
+If[ArrayDepth@var==2,
+	ExternalEvaluate[session,targetVarName<>".set_index('index',inplace=True)"];
+];
+
+]
+
+
+pyExpConstructor[var_DateObject]:="'"<>DateString[var,"ISODateTime"]<>"'";
+pyExpConstructor[var_String]:="'"<>var<>"'";
+pyExpConstructor[var_]:=var;
 
 
 (* ::Section::Closed:: *)
