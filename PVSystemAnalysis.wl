@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*General functions*)
 
 
@@ -105,13 +105,16 @@ This is useful for mapping First to outputs from a listable function but not sur
 If[ Not@ValueQ[GroupbyDay::usage],
 GroupbyDay::usage = "Operator form of function GroupBy to group by date of timestamp. Timestamp needs to be the first column. "];
 
+If[ Not@ValueQ[LookupIndex::usage],
+LookupIndex::usage = "LookupIndex[list] generates a lookup table (association) of numbered index <|element1->1, element2->2, ...|>. "];
+
 
 (* ::Subsection::Closed:: *)
 (*Time related*)
 
 
 If[ Not@ValueQ[ReduceDateObject::usage],
-ReduceDateObject::usage = "ReduceDateObject[dataset_,dateFormat_:{Month,/,Day,/,Year, ,Hour,:,Minute},position_:1] does quick conversion of DateObject back to string according to specified dateFormat. "]
+ReduceDateObject::usage = "ReduceDateObject[dataset_,dateFormat_:{\"Year\",\"-\",\"Month\",\"-\",\"Day\",\" \",\"Hour\",\":\",\"Minute\",\":\",\"Second\"},position_:1] does quick conversion of DateObject back to string according to specified dateFormat. "]
 
 If[ Not@ValueQ[ConvertDateObject::usage],
 ConvertDateObject::usage = "ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1] does quick conversion of DateObject to show in a specified timezone. 
@@ -119,15 +122,20 @@ Note: timezone default is set to machine local timezone (not dynamic). If timest
 
 
 If[ Not@ValueQ[ToTemporalData::usage],
-ToTemporalData::usage = "Quick conversion to a temporal data object."]
+ToTemporalData::usage = "Quick conversion to a temporal data object."];
 
 If[ Not@ValueQ[FromTemporalData::usage],
-FromTemporalData::usage = "Quick conversion from a temporal data object to extract paths."]
+FromTemporalData::usage = "Quick conversion from a temporal data object to extract paths."];
 
 If[ Not@ValueQ[RegularizeTimeSeries::usage],
 RegularizeTimeSeries::usage = "RegularizeTimeSeries[data, resampleMethod,timesteps] makes the timestamp spacing uniform by filling in missing timestamps.
 Assumes data is regular shaped table. Timestamps must be DateObject. 
-Timestep specification can be any of the forms accepted by TimeSeriesResample (default is linear interpolation). "]
+Timestep specification can be any of the forms accepted by TimeSeriesResample (default is linear interpolation). "];
+
+If[ Not@ValueQ[DetectResolution::usage],
+DetectResolution::usage = "DetectResolution[list,takeSize_:200] returns the prominent spacing between elements in the list by taking the first takeSize elements. \
+Warning will be issued if count of second common delta is greater than 5% of most common delta."];
+DetectResolution::noRegSpace = "Input series not regularly spaced (significant number of exceptions).";
 
 
 (* ::Subsection::Closed:: *)
@@ -143,6 +151,7 @@ Glimpse::usage = "quick look at data dimension and first few rows."]
 If[ Not@ValueQ[MergeData::usage],
 MergeData::usage = "MergeData[datasets] merges multiple datasets with a common key (e.g. timestamp). The input needs to be a table of datasets: {dataset1, dataset2, ...}, output will be in dataset format even if inputs are tables. \
 Format of individual datasets must be tables, or flat (not hierarchical) and (only) column indexed Dataset objects. It is not advisable to use DateObject as the timestamp as its exact form may not be the same while appearing to be the same timestamp. 
+Default options are {KeyPosition->1,Header->False,JoinMethod->\"Outer\",keyCollisionFunction->Right}. 
 MergeData[tables,\"Fast\"] merges tables using a fast method assuming first column as common key. "]
 
 Options[MergeData]={KeyPosition->1,Header->False,JoinMethod->"Outer",keyCollisionFunction->Right};
@@ -163,9 +172,14 @@ DataSummary::usage = "Simple summary of data shape."];
 
 If[ Not@ValueQ[GetNASAPowerData::usage],
 GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location."];
+GetNASAPowerData::notime="time range required but not specified.";
 
 If[ Not@ValueQ[DatasetToPython::usage],
 DatasetToPython::usage = "DatasetToPython[session,var_Dataset,targetVarName_String] passes a dataset to python session as a pandas dataframe. Must have pandas imported in the python session. "];
+
+If[ Not@ValueQ[InsertToSQL::usage],
+InsertToSQL::usage = "InsertToSQL[dataset,table,connection,start_:0,step_:5000] inserts a flat dataset to an SQL table from row number specified by start in batches specified by step. 
+InsertToSQL[table,connection,start,step] is the operator form. "];
 
 
 (* ::Subsection::Closed:: *)
@@ -242,6 +256,14 @@ If[ Not@ValueQ[fnSum::usage],
 fnSum::usage = "gives the sum of valid numeric datapoints present in each bin of time window."]
 
 
+(* ::Subsection::Closed:: *)
+(*Maths*)
+
+
+If[ Not@ValueQ[DistributionMode::usage],
+DistributionMode::usage = "DistributionMode[list] calculates the mode of the distribution estimated by SmoothKernelDistribution. "];
+
+
 (* ::Section::Closed:: *)
 (*Plotting related*)
 
@@ -256,16 +278,19 @@ If[ Not@ValueQ[TwoAxisListLinePlot::usage],
 TwoAxisListLinePlot::usage = "Two axis plotting: TwoAxisListLinePlot[{f,g}]."]
 
 If[ Not@ValueQ[HighlightData::usage],
-HighlightData::usage = "HighlightData[data_,logic_,positions_:\"default\",color_:Red] labels the selected columns (specified by positions) in a certain color."]
+HighlightData::usage = "HighlightData[data_,logic_,positions_:\"default\",color_:Red] labels the selected columns (specified by positions) in a certain color."];
+
+If[ Not@ValueQ[HighlightDataPlot::usage],
+HighlightDataPlot::usage = "HighlightDataPlot[highlightData,plotType,opt] takes in highlighted data and plot as plotType."];
 
 If[ Not@ValueQ[EnhancedShow::usage],
-EnhancedShow::usage = "Enhanced plots with some reformatting."]
+EnhancedShow::usage = "Enhanced plots with some reformatting."];
 
 If[ Not@ValueQ[ExtractPlotData::usage],
-ExtractPlotData::usage = "Extract datapoints from a plot."]
+ExtractPlotData::usage = "Extract datapoints from a plot."];
 
 If[ Not@ValueQ[AddTrendline::usage],
-AddTrendline::usage = "Add a line of best linear fit to a plot."]
+AddTrendline::usage = "Add a line of best linear fit to a plot."];
 
 Options[AddTrendline]={"ShowEquation"->True,"PlaceEquation"->Scaled[{0.6,0.8}]};
 
@@ -296,20 +321,26 @@ otherwise may confuse and get Sunrise or Sunset time in the wrong day (in case w
 Options[RemoveNightTime]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},Location->$GeoLocation,"TimeZone"->Null};
 
 If[ Not@ValueQ[ArrayPitch::usage],
-ArrayPitch::usage = "ArrayPitch[tilt, width, \[Theta]limit] calculates the required pitch given array tilt, collector width, and desired shading limit angle."]
+ArrayPitch::usage = "ArrayPitch[tilt, width, \[Theta]limit] calculates the required pitch given array tilt, collector width, and desired shading limit angle."];
 
 If[ Not@ValueQ[ShadeLimitAngle::usage],
-ShadeLimitAngle::usage = "ShadeLimitAngle[tilt, width, pitch] calculates the shading limit angle."]
+ShadeLimitAngle::usage = "ShadeLimitAngle[tilt, width, pitch] calculates the shading limit angle."];
 
 If[ Not@ValueQ[GCR::usage],
-GCR::usage = "GCR[tilt, \[Theta]limit] estimates the ground coverage ratio for a desired tilt and shading limit angle."]
+GCR::usage = "GCR[tilt, \[Theta]limit] estimates the ground coverage ratio for a desired tilt and shading limit angle."];
 
 If[ Not@ValueQ[AoiProjection::usage],
-AoiProjection::usage = "AoiProjection[tilt,orientation,sunZenith,sunAzimuth] returns the cosine of the incidence angle between sunlight and module plane."]
+AoiProjection::usage = "AoiProjection[tilt,orientation,sunZenith,sunAzimuth] returns the cosine of the incidence angle between sunlight and module plane."];
 
 If[ Not@ValueQ[AngleOfIncidence::usage],
-AngleOfIncidence::usage = "AngleOfIncidence[tilt,orientation,sunZenith,sunAzimuth] returns the incidence angle between sunlight and module plane."]
+AngleOfIncidence::usage = "AngleOfIncidence[tilt,orientation,sunZenith,sunAzimuth] returns the incidence angle between sunlight and module plane."];
 
+If[ Not@ValueQ[StablePeriodDetect::usage],
+StablePeriodDetect::usage = "StablePeriodDetect[data,irrColName(optional),threshold:20,length:5] detects stable periods and append a column with labels 0 or 1. \
+Input data should include at least two columns: {Timestamp,irradiance}. "];
+StablePeriodDetect::noIrr = "Error: irradiance column not properly defined.";
+StablePeriodDetect::multiIrr = "Multiple irradiance columns may be present, the first one will be selected. ";
+StablePeriodDetect::tablein = "Table input, assumes first two columns to be time and irradiance. ";
 
 
 (* ::Subsection::Closed:: *)
@@ -343,7 +374,10 @@ VoltageRatio2::usage = "VoltageRatio2 calculates the ratio of actual voltage to 
 
 If[ Not@ValueQ[CurrentRatio::usage],
 CurrentRatio::usage = "CurrentRatio[current,Isc,Gpoa,Tmod (in K),tempCoeff:0.0005] calculates the ratio of actual current to expected Isc under a certain operating condition with temperature correction.
-CurrentRatio[current,Isc,Gpoa] calculates the ratio without temperature correction"];
+CurrentRatio[current,Isc,Gpoa] calculates the ratio without temperature correction. "];
+
+If[ Not@ValueQ[Dispersion::usage],
+Dispersion::usage = "Dispersion[list] gives the standard deviation of the list normalized by its rough magnitude (mean of |list|). "];
 
 If[ Not@ValueQ[ConversionFactor::usage],
 ConversionFactor::usage = "Dictionary for factors to multiply when doing conversions.
@@ -451,6 +485,9 @@ Photocurrent[spec_,{wMin_,wMax_}] calculates it for a given range of wavelength.
 Begin["`Private`"];
 
 
+Needs["DatabaseLink`"];
+
+
 (* ::Chapter::Closed:: *)
 (*Constants*)
 
@@ -465,7 +502,7 @@ h=6.626*10^-34;
 (*General functions*)
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*General*)
 
 
@@ -640,7 +677,7 @@ Table[
 ,{i,Length@x}]
 ];
 
-AppendColumn[array_Dataset/;ArrayDepth@array==2, x_List,colName_String:"new_column"] := Module[{table=FromDataset[array,True],output},
+AppendColumn[array_Dataset/;ArrayDepth@array==2, x_,colName_String:"new_column"] := Module[{table=FromDataset[array,True],output},
 output=AppendColumn[Rest@table,x];
 output=ToDataset[output,Append[First@table,colName]]//AddIndex[#,1]&
 ];
@@ -679,7 +716,7 @@ Return[ToDataset[output,outputCols]];
 (*User convenience*)
 
 
-take[n_]:=Take[#,n]&;
+take[n_:5]:=Take[#,n]&;
 
 
 TestArray[row_,col_]:=Array[10#1+#2&,{row,col}];
@@ -692,7 +729,10 @@ first[x_]:=x;
 GroupbyDay=GroupBy[DateString[First@#,"ISODate"]&];
 
 
-(* ::Section:: *)
+LookupIndex[list_]:=AssociationThread[list->Range[Length[list]]];
+
+
+(* ::Section::Closed:: *)
 (*Time related*)
 
 
@@ -700,7 +740,7 @@ GroupbyDay=GroupBy[DateString[First@#,"ISODate"]&];
 (*DateObject handling*)
 
 
-ReduceDateObject[dataset_,dateFormat_:{"Day","/","Month","/","Year"," ","Hour",":","Minute",":","Second"},position_:1]:=Module[{reducedOutput},
+ReduceDateObject[dataset_,dateFormat_:{"Year","-","Month","-","Day"," ","Hour",":","Minute",":","Second"},position_:1]:=Module[{reducedOutput},
 
 If[dateFormat==="DateList",
 	reducedOutput=Map[MapAt[DateList,#,position]&,dataset];
@@ -772,6 +812,25 @@ ts=ToTemporalData@data;
 Return@FromTemporalData@TimeSeriesResample[ts,timesteps,ResamplingMethod->resampleMethod];
 
 ];
+
+
+DetectResolution[list:{__},takeSize_:200]:=Module[{deltas,resolution},
+
+deltas=Differences@Take[list,UpTo@takeSize];
+With[{tally=Tally@deltas},
+	If[Length@tally>1,
+		If[Divide@@Sort[tally[[All,2]]][[{-2,-1}]]>0.05, (* if count of second common delta is greater than 5% of most common delta *)
+			Message[DetectResolution::noRegSpace];
+			Print@"warning: series not regularly spaced. ";
+		];
+	];
+];
+
+First@Commonest@deltas
+
+];
+
+DetectResolution[list_Dataset,takeSize_:200]:=DetectResolution[list//FromDataset,takeSize];
 
 
 (* ::Section:: *)
@@ -878,7 +937,10 @@ MergeData[list_?(MatchQ[#,{__List}]&),"Fast"]:=Flatten[{#,Rest/@{##2}}]&@@@(Pick
 Resample[dataset_,groupBy_:"ISODate"]:=dataset//GroupBy[DateString[First[#],groupBy]&]//Map[Rest/@#&];
 
 
-Resample[dataset_,groupBy_,func_]:=dataset//GroupBy[DateString[First[#],groupBy]&]//Map[Rest/@#&]//Map[Map[func]@*Transpose];
+Resample[dataset_List,groupBy_,func_]:=dataset//GroupBy[DateString[First[#],groupBy]&]//Map[Rest/@#&]//Map[Map[func]@*Transpose];
+
+
+Resample[dataset_Dataset,groupBy_,func_]:=dataset//GroupBy[DateString[First[#],groupBy]&]//Map[Rest/@#&]//Map[Map[func]@*Transpose@*Dataset];
 
 
 (* ::Subsection::Closed:: *)
@@ -968,8 +1030,6 @@ DataSummary[dataset_Dataset]:=DataSummary@FromDataset[dataset,True];
 (*Default is to get TMY monthly values for solar irradiance (GHI), temperature, wind speed at 2m and precipitation. *)
 
 
-GetNASAPowerData::notime="time range required but not specified.";
-
 GetNASAPowerData[lat_,lon_,par_:"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT",temporalType_:"CLIMATOLOGY",start_:Null,end_:Null]:=Module[{accessAPI,fileAddress,output},
 
 accessAPI="https://power.larc.nasa.gov/cgi-bin/v1/DataAccess.py?request=execute&identifier=SinglePoint&userCommunity=SSE&user=anonymous&outputList=CSV&lat="<>ToString@lat<>"&lon="<>ToString@lon<>"&tempAverage="<>temporalType<>"&parameters="<>par;
@@ -1015,6 +1075,26 @@ If[ArrayDepth@var==2,
 pyExpConstructor[var_DateObject]:="'"<>DateString[var,"ISODateTime"]<>"'";
 pyExpConstructor[var_String]:="'"<>var<>"'";
 pyExpConstructor[var_]:=var;
+
+
+(* ::Subsection::Closed:: *)
+(*SQL*)
+
+
+InsertToSQL[dataset_Dataset/;ArrayDepth@dataset==1,table_String,connection_,start_:0,step_:5000]:=Module[{length=Length@dataset,indList,columns=dataset//DatasetColumns,data=dataset//FromDataset},
+
+indList=Range[start,length,step];
+
+Monitor[
+Do[
+	SQLInsert[connection,table,columns,data[[i+1;;Min[i+step,length]]]];
+,
+{i,indList}];
+,
+ProgressIndicator[i,{start,Last@indList}]]
+];
+
+InsertToSQL[table_String,connection_,start_:0,step_:5000][dataset_Dataset/;ArrayDepth@dataset==1]:=InsertToSQL[dataset,table,connection,start,step];
 
 
 (* ::Section::Closed:: *)
@@ -1357,7 +1437,14 @@ Return[output]
 
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
+(*Maths*)
+
+
+DistributionMode[list_List]:=ArgMax[PDF[SmoothKernelDistribution[list],x],x];
+
+
+(* ::Section::Closed:: *)
 (*Plotting related*)
 
 
@@ -1413,7 +1500,7 @@ If[ArrayDepth@data==3,
 (*Color can be specified in the form of pure function. *)
 
 
-HighlightData[data_,logic_,positions_:"default",color_:Red]:=Module[{highlightPos,output},
+HighlightData[data_,logic_,Shortest[positions_:"default"],color_:Red]:=Module[{highlightPos,output},
 
 Which[
 Head@data==List && ArrayDepth@data==2 || Head@data==Dataset && ArrayDepth@data==1,
@@ -1423,13 +1510,19 @@ Head@data==List && ArrayDepth@data==2 || Head@data==Dataset && ArrayDepth@data==
 		highlightPos=positions;
 	];
 
-	output=If[Check[logic@#,False],With[{color2=If[Head@color===Function,color@#,color]},MapAt[Style[#,color2]&,#,highlightPos]],#]&/@data;,
+	output=If[Check[logic@ReplaceAll[#,Style[x_,_]:>x],False],With[{color2=If[Head@color===Function,color@#,color]},MapAt[Style[#,color2]&,ReplaceAll[#,Style[x_,_]:>x],highlightPos]],#]&/@data;,
 Head@data==List && ArrayDepth@data==1,
-	output=If[Check[logic@#,False],Style[#,color],#]&/@data;
+	output=If[Check[logic@ReplaceAll[#,Style[x_,_]:>x],False],Style[ReplaceAll[#,Style[x_,_]:>x],color],#]&/@data;
 ];
 
 Return@output;
 ];
+
+
+HighlightDataPlot[highlightData_List,plotType_,opt:OptionsPattern[]]:=plotType[highlightData/.{{Style[x_,_],Style[y_,z_]}:>Style[{x,y},z],{x_,Style[y_,z_]}:>Style[{x,y},z]},opt];
+HighlightDataPlot[highlightData_Dataset,plotType_,opt:OptionsPattern[]]:=HighlightDataPlot[highlightData//FromDataset,plotType,opt];
+
+HighlightDataPlot[plotType_,opt:OptionsPattern[]][highlightData_]:=HighlightDataPlot[highlightData,plotType,opt];
 
 
 (* ::Subsection::Closed:: *)
@@ -1584,6 +1677,70 @@ Return@projection;
 AngleOfIncidence[tilt_,orientation_,sunZenith_,sunAzimuth_]:=ArcCos@AoiProjection[tilt,orientation,sunZenith,sunAzimuth]/Degree//N;
 
 
+(* ::Subsection::Closed:: *)
+(*Clear sky detector*)
+
+
+(* ::Text:: *)
+(*Assumes input data as time series is sorted and regularly spaced. *)
+(*First two rows will not be judged for stability but will be labeled as non stable. *)
+(*Mainly for detecting irradiance stability but can be used for other signals too. *)
+
+
+StablePeriodDetect[data_Dataset,Shortest[irrColName_:Automatic],threshold_:20,length_:5]:=Module[{cols,timeColName,deltas,irrCol,sod,stablePeriod,nonStablePeriod},
+
+cols=data//DatasetColumns;
+timeColName=SelectFirst[cols,StringContainsQ["timestamp"|"date"|"time"|"Timestamp"|"Date"|"Time"]];
+Echo[timeColName,"Detected timestamp column: "];
+
+deltas=DetectResolution[data[[All,{timeColName}]]];
+If[irrColName===Automatic,
+	irrCol=Select[cols,StringMatchQ[#,"G"] || StringContainsQ[#,"GHI"|"radiance"|"POA"|"ghi"|"poa"|"irr"|"Irr"] && Not@StringMatchQ[#,__~~"_D"|"_D_D"]&];
+	Echo[irrCol,"Detected irradiance columns: "];
+,
+	irrCol={irrColName};
+];
+
+Which[Length@irrCol>1,
+	irrCol=First@irrCol;
+	Message[StablePeriodDetect::multiIrr];,
+Length@irrCol==0,
+	Message[StablePeriodDetect::noIrr];
+	Abort[];,
+Length@irrCol==1,
+	irrCol=First@irrCol;
+];
+
+If[MemberQ[cols,irrCol<>"_D_D"],
+	sod=data[All,{timeColName,irrCol,irrCol<>"_D_D"}]//FromDataset;
+, (* else *)
+
+(* second order differencing, returning table with columns Timestamp, G, G_D, Timestamp_D, G_D_D *)
+	sod=CalcFirstOrderDiff[
+			CalcFirstOrderDiff[data[All,{timeColName,irrCol}],{irrCol,timeColName}]//Select[#[timeColName<>"_D"]==deltas&]
+		,{irrCol<>"_D"}];
+	sod=sod[All,{timeColName,irrCol,irrCol<>"_D_D"}]//FromDataset;
+];
+
+(* select stable period if second order difference is less than threshold for consecutive times > length *)
+stablePeriod=Flatten[Select[Split[sod,Abs@#2[[-1]]<threshold&],Length@#>length&],1]; 
+If[stablePeriod=!={},stablePeriod=stablePeriod[[All,;;3]];];
+
+nonStablePeriod=Complement[sod[[All,;;3]],stablePeriod]//AppendColumn[0];
+
+Return@
+MergeData[
+	{data,ToDataset[SortBy[nonStablePeriod~Join~AppendColumn[stablePeriod,1],First],{timeColName,irrCol,irrCol<>"_D_D","is_stable"}]}
+];
+
+];
+
+StablePeriodDetect[data_List,threshold_:20,length_:5]:=Block[{},
+Message[StablePeriodDetect::tablein];
+StablePeriodDetect[data//Prepend[{"Timestamp","G"}~Join~Table["column_"<>ToString@i,{i,Range[3,Dimensions[data][[2]]]}]]//ToDataset,threshold,length]
+];
+
+
 (* ::Chapter:: *)
 (*PV system related calculations*)
 
@@ -1677,6 +1834,14 @@ CurrentRatio[current_,Isc_,Gpoa_?Positive]:=current/(Gpoa/1000*Isc); (* simplifi
 CurrentRatio[current_,Isc_,Gpoa_?NonPositive]:=0;
 
 SetAttributes[CurrentRatio,Listable];
+
+
+(* ::Subsection::Closed:: *)
+(*Dispersion*)
+
+
+Dispersion[{_?(#==0&)..}]:=0;
+Dispersion[list_]:=StandardDeviation@list/With[{m=Mean@Abs@list},If[m<0.01,0.01,m]];
 
 
 (* ::Subsection::Closed:: *)
@@ -2073,7 +2238,8 @@ Return@{croppedTS,plots};
 (*TimeSeriesAlbum gives an object containing data slices and their plots for each column.*)
 
 
-TimeSeriesAlbum[dataIn_,groupBy:_:{"Year","-","Month","-","Day"},opt:OptionsPattern[]]:=Module[{self=<||>,data,columnNames,groupData,index,timestampPos,cols},
+AlbumCount=0;
+TimeSeriesAlbum[dataIn_,groupBy:_:{"Year","-","Month","-","Day"},opt:OptionsPattern[]]:=Module[{self=<||>,data,columnNames,groupData,index,timestampPos},
 
 Which[
 Head@dataIn===Dataset,
@@ -2082,7 +2248,13 @@ Head@dataIn===Dataset,
 ,
 Head@dataIn===List&&ArrayDepth@dataIn==2,
 	(* assumes first pure string row is header, if not, assume timestamp position at first column *)
-	columnNames=With[{t=FirstCase[data,{__String}]},If[MissingQ@t,Prepend[StringJoin["column",#]&/@ToString/@Rest[Range@Dimensions[data][[2]]-1],"timestamp"],t]];
+	columnNames=With[{t=FirstCase[dataIn,{__String}]},
+					If[MissingQ@t,
+						Prepend[StringJoin["column",#]&/@ToString/@Rest[Range@Dimensions[dataIn][[2]]-1],"timestamp"]
+					,
+						t
+					]
+				];
 	data=dataIn;
 ,
 True,
@@ -2118,19 +2290,14 @@ AppendTo[self,"album":>
 		]
 	]
 ];
-(*AppendTo[self,"album"\[RuleDelayed]
-	With[{func=self["plot"],bin=self["bins"],tpos=timestampPos},
-		Column[{
-		TogglerBar[Dynamic[cols],Drop[self["columns"],{tpos}]],
-		Manipulate[Row@Table[func[bins,c],{c,cols}],
-		{{bins,First@bin,"bins"},bin}
-		]
-		}]
-	]
-];*)
+
+AppendTo[self,"album_number"->AlbumCount+1];
+AlbumCount+=1;
+
 AppendTo[self,"album_extendable":>
-	With[{func=self["plot"],bin=self["bins"],col=Drop[self["columns"],{timestampPos}]},
-		makeAlbum[func,col,bin]
+	With[{func=self["plot"],bin=self["bins"],col=Drop[self["columns"],{timestampPos}],albumNum=self["album_number"]},
+		cols[albumNum]={};
+		makeAlbum[func,col,bin,albumNum]
 	]
 ];
 
@@ -2138,13 +2305,36 @@ Return@self;
 ];
 
 
-(*Off[Table::iterb];*)
-makeAlbum[func_,col_,bin_]:=
+(*(*Off[Table::iterb];*)
+makeAlbum[func_,col_,bin_,albumNum_]:=
 Column[{
 	TogglerBar[Dynamic[cols],col,Appearance->"Row"],
 	Button["clear selection",cols={}],
 	Manipulate[
 		With[{plot=Table[func[bins,c],{c,If[Head@cols=!=List||cols==={},{First@col},cols]}]},
+			Column@{
+				Button["save plot",
+					Export[ToString@bins<>".png",
+						GraphicsGrid[Partition[plot,UpTo[4]],ImageSize->Full]
+					]
+				],
+				Row@plot
+			}
+		],
+		{{bins,First@bin,"bins"},bin},
+		Row@{Button["previous bin",bins=bin[[With[{p=Position[bin,bins][[1,1]]},Max[p-1,1]]]]],Button["next bin",bins=bin[[Min[Position[bin,bins][[1,1]]+1,Length@bin]]]]}
+	]
+	}]
+
+*)
+
+
+makeAlbum[func_,col_,bin_,albumNum_]:=
+Column[{
+	TogglerBar[Dynamic[cols[albumNum]],col,Appearance->"Row"],
+	Button["clear selection",cols[albumNum]={}],
+	Manipulate[
+		With[{plot=Table[func[bins,c],{c,If[Head@cols[albumNum]=!=List||cols[albumNum]==={},{First@col},cols[albumNum]]}]},
 			Column@{
 				Button["save plot",
 					Export[ToString@bins<>".png",
@@ -2451,7 +2641,7 @@ If[inputResolution===Automatic,
 	deltas=Differences@Take[dataOut[[All,colIndex["Timestamp"]]],UpTo@200];
 	With[{tally=Tally@deltas},
 	If[Length@tally>1,
-		If[Divide@@Sort[tally[[All,2]]][[{1,-1}]]>0.05,
+		If[Divide@@Sort[tally[[All,2]]][[{-2,-1}]]>0.05, (* if count of second common delta is greater than 5% of most common delta *)
 			Print@"warning: time series not regularly spaced. ";
 		];
 	];
