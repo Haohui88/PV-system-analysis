@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*General functions*)
 
 
@@ -84,8 +84,8 @@ RenameColumn::usage = "RenameColumn[replaceRules][dataset] replaces column names
 
 If[ Not@ValueQ[AppendColumn::usage],
 AppendColumn::usage = "AppendColumn[array_List, x] appends x to array as a column. 
-AppendColumn[array_Dataset, x_List,colName:\"new_column\"] appends column to dataset with a column name. 
-AppendColumn[x] and AppendColumn[x,\"ToDataset\",colName:\"new_column\"] are operator forms to be applied to array and Dataset respectively. "];
+AppendColumn[array_Dataset, x_,colName:\"new_column\"] appends column to dataset with a column name. 
+AppendColumn[x] and AppendColumn[x, colName(needs to be string)] are operator forms to be applied to array/Dataset and Dataset(only) respectively. "];
 
 If[ Not@ValueQ[CalcFirstOrderDiff::usage],
 CalcFirstOrderDiff::usage = "CalcFirstOrderDiff[dataset,col:{__String}:All,inPercentage:{__String}:None] calculates first order differences for selected columns in col and merge with original dataset. \
@@ -128,9 +128,9 @@ If[ Not@ValueQ[FromTemporalData::usage],
 FromTemporalData::usage = "Quick conversion from a temporal data object to extract paths."];
 
 If[ Not@ValueQ[RegularizeTimeSeries::usage],
-RegularizeTimeSeries::usage = "RegularizeTimeSeries[data, resampleMethod,timesteps] makes the timestamp spacing uniform by filling in missing timestamps.
+RegularizeTimeSeries::usage = "RegularizeTimeSeries[data, resampleMethod:Automatic, timesteps:Automatic] makes the timestamp spacing uniform by filling in missing timestamps.
 Assumes data is regular shaped table. Timestamps must be DateObject. 
-Timestep specification can be any of the forms accepted by TimeSeriesResample (default is linear interpolation). "];
+Resample method specification can be any of the forms accepted by TimeSeriesResample (default is linear interpolation, use None instead to fill in Missing). "];
 
 If[ Not@ValueQ[DetectResolution::usage],
 DetectResolution::usage = "DetectResolution[list,takeSize_:200] returns the prominent spacing between elements in the list by taking the first takeSize elements. \
@@ -497,12 +497,14 @@ k=1.381*10^-23;
 c=3*10^8;
 h=6.626*10^-34;
 
+Tkelvin=273.15;
+
 
 (* ::Chapter:: *)
 (*General functions*)
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*General*)
 
 
@@ -669,20 +671,29 @@ RenameColumn[replaceRules_List][dataset_Dataset/;ArrayDepth@dataset==2]:=KeyMap[
 
 AppendColumn[array_List, x_List] := Transpose[Append[Transpose[array], x]];
 AppendColumn[array_List, x_] := Append[#, x]& /@ array;
-AppendColumn[x_] := Function[mat,AppendColumn[mat,x]];
 
-AppendColumn[array_Dataset/;ArrayDepth@array==1, x_List,colName_String:"new_column"] := Dataset[
+AppendColumn[array_Dataset/;ArrayDepth@array==1, x_List, colName_String:"new_column"] := Dataset[
 Table[
 	Append[Normal[array][[i]],colName->x[[i]]]
-,{i,Length@x}]
+,{i,Length@array}]
 ];
 
-AppendColumn[array_Dataset/;ArrayDepth@array==2, x_,colName_String:"new_column"] := Module[{table=FromDataset[array,True],output},
+(* append single element by broadcasting *)
+AppendColumn[array_Dataset/;ArrayDepth@array==1, x_, colName_String:"new_column"] := Dataset[
+Table[
+	Append[Normal[array][[i]],colName->x]
+,{i,Length@array}]
+];
+
+(* appending to indexed dataset *)
+AppendColumn[array_Dataset/;ArrayDepth@array==2, x_, colName_String:"new_column"] := Module[{table=FromDataset[array,True],output},
 output=AppendColumn[Rest@table,x];
 output=ToDataset[output,Append[First@table,colName]]//AddIndex[#,1]&
 ];
 
-AppendColumn[x_,"ToDataset",colName_String:"new_column"] := Function[dataset,AppendColumn[dataset,x,colName]];
+(* operator form for both matrix and dataset *)
+AppendColumn[x_] := Function[mat,AppendColumn[mat,x]];
+AppendColumn[colName_String->x_] := Function[dataset,If[Head@dataset===Dataset,AppendColumn[dataset,x,colName],AppendColumn[dataset,x]]];
 
 
 CalcFirstOrderDiff[ds_Dataset,col:{__String}:All,inPercentage:{__String}:None]:=Module[{colNames=DatasetColumns@ds,colIndex,colToDiff,colDiffIndex,diff,table=FromDataset@ds,output,outputCols},
@@ -732,7 +743,7 @@ GroupbyDay=GroupBy[DateString[First@#,"ISODate"]&];
 LookupIndex[list_]:=AssociationThread[list->Range[Length[list]]];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Time related*)
 
 
@@ -806,10 +817,18 @@ ts["PathCount"]==1,
 (*Timestep specification can be any of the forms accepted by TimeSeriesResample. *)
 
 
-RegularizeTimeSeries[data_/;Head@data[[1,1]]===DateObject,resampleMethod_:Automatic,timesteps_:Automatic]:=Block[{$TimeZone=data[[1,1]]["TimeZone"],ts},
+RegularizeTimeSeries[data:{{_DateObject,__}..}(*/;Head@data[[1,1]]===DateObject*),resampleMethod_:Automatic,timesteps_:Automatic]:=Block[{$TimeZone=data[[1,1]]["TimeZone"],ts},
 
 ts=ToTemporalData@data;
 Return@FromTemporalData@TimeSeriesResample[ts,timesteps,ResamplingMethod->resampleMethod];
+
+];
+
+RegularizeTimeSeries[data_Dataset/;Head@data[[1,1]]===DateObject,resampleMethod_:Automatic,timesteps_:Automatic]:=Block[{$TimeZone=data[[1,1]]["TimeZone"],ts,headings=data//DatasetColumns},
+
+ts=ToTemporalData@data;
+Return@
+ToDataset[FromTemporalData@TimeSeriesResample[ts,timesteps,ResamplingMethod->resampleMethod],headings];
 
 ];
 
