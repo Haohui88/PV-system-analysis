@@ -181,6 +181,11 @@ If[ Not@ValueQ[InsertToSQL::usage],
 InsertToSQL::usage = "InsertToSQL[dataset,table,connection,start_:0,step_:5000] inserts a flat dataset to an SQL table from row number specified by start in batches specified by step. 
 InsertToSQL[table,connection,start,step] is the operator form. "];
 
+If[ Not@ValueQ[ToSQL::usage],
+ToSQL::usage = "ToSQL[dataset,table,connection,ifExist:\"Replace\"] writes a flat dataset to an SQL table. Missing values will be filled with -9999. \
+Need to ensure there is no mixed datatype for input dataset. 
+ToSQL[table,connection,ifExist] is the operator form. "];
+
 
 (* ::Subsection::Closed:: *)
 (*Quick ReportPeriod statistics*)
@@ -1114,6 +1119,61 @@ ProgressIndicator[i,{start,Last@indList}]]
 ];
 
 InsertToSQL[table_String,connection_,start_:0,step_:5000][dataset_Dataset/;ArrayDepth@dataset==1]:=InsertToSQL[dataset,table,connection,start,step];
+
+
+ToSQL[datasetIn_Dataset/;ArrayDepth@datasetIn==1,table_String,connection_,ifExist_:"Replace"]:=Module[{dataset,columns,sampled,heads,flagColumn,sqlColumns},
+
+dataset=datasetIn/.{_Missing->-9999,True->1,False->0};
+
+If[SQLTableNames[conn,table]==={} || (SQLTableNames[conn,table]=!={} && ifExist=="Replace"),
+
+columns=dataset//DatasetColumns//StringReplace[{" "->"_","."->"","\\"->"_"}];
+sampled=RandomSample[dataset,UpTo@200]//FromDataset//Transpose; (* look at individual columns *)
+
+flagColumn=DeleteCases[MapIndexed[If[CountDistinct[Head/@#1]>1,First@#2]&,sampled],Null];
+If[Length@flagColumn>0,
+Print["warning: columns with non uniform data types: "<>ToString@flagColumn];
+];
+
+If[ContainsAny[columnTypeMap/@sampled,{{}}],Abort[];];
+sqlColumns=Table[SQLColumn@@Prepend[columnTypeMap@sampled[[i]],columns[[i]]],{i,Length@columns}];
+(*Echo@sqlColumns;*)
+
+If[SQLTableNames[conn,table]=!={} && ifExist=="Replace",
+	SQLDropTable[conn,table];
+];
+
+SQLCreateTable[conn,SQLTable[table],sqlColumns];
+
+dataset//RenameColumn[Normal@AssociationThread[dataset//DatasetColumns,columns]]//InsertToSQL[table,connection];
+
+, (*else*)
+
+(* assuming columns names are all correct *)
+dataset//InsertToSQL[table,connection]; 
+
+];
+
+];
+
+ToSQL[table_String,connection_,ifExist_:"Replace"][datasetIn_Dataset/;ArrayDepth@datasetIn==1]:=ToSQL[datasetIn,table,connection,ifExist];
+
+columnTypeMap[x_]:=Module[{heads=Union[Head/@x]},
+Switch[heads,
+	{DateObject},
+		{"DataTypeName"->"DATETIME"},
+	{Real},
+		{"DataTypeName"->"DOUBLE"},
+	{Integer,Real},
+		{"DataTypeName"->"DOUBLE"},
+	{Integer},
+		If[Max@Abs@x<10,{"DataTypeName"->"TINYINT"},{"DataTypeName"->"INT"}],
+	{String},
+		{"DataTypeName"->"VARCHAR", "DataLength"->Max[Max[StringLength/@x],255]},
+	_,
+		{}
+]
+];
 
 
 (* ::Section::Closed:: *)
