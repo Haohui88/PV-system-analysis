@@ -300,7 +300,10 @@ AddTrendline::usage = "Add a line of best linear fit to a plot."];
 Options[AddTrendline]={"ShowEquation"->True,"PlaceEquation"->Scaled[{0.6,0.8}]};
 
 If[ Not@ValueQ[FigureAlbum::usage],
-FigureAlbum::usage = "Inspect a set of plots."]
+FigureAlbum::usage = "Inspect a set of plots."];
+
+If[ Not@ValueQ[PyPlot::usage],
+PyPlot::usage = "PyPlot[session_,var_Dataset,plotType_:\"line\"] does x-y plot using matplotlib."];
 
 
 (* ::Section:: *)
@@ -565,7 +568,7 @@ If[Dimensions@booleanMask!=Dimensions@x,
 SetAttributes[Where,HoldAll]
 
 
-extract[x_,pattern_]:=Extract[Replace[Position[x,pattern],{{p_Integer}}:>p]];
+extract[x_,pattern_,posLv_:1]:=Extract[DeleteCases[Replace[Position[x,pattern,posLv],{{p_Integer}}:>p],{0}]];
 
 
 (* ::Subsection::Closed:: *)
@@ -1081,24 +1084,32 @@ Return[Cases[{output},{___,{"-END HEADER-"},x___}->x]];
 
 DatasetToPython[session_,var_Dataset,targetVarName_String]:=Module[{columns,x,dict},
 
+ExternalEvaluate[session,"if 'pd' not in locals():
+	import pandas as pd"];
+
 x=FromDataset[var,True];
 columns=First@x;
 x=Rest@x//Transpose;
 
-dict=ToString@Table[pyExpConstructor[columns[[i]]]<>":"<>StringReplace[ToString[pyExpConstructor/@x[[i]]],{"{"->"[","}"->"]"}],{i,Length@x}];
+dict=ToString@Table[pyExpConstructor[columns[[i]]]<>":"<>StringReplace[ToString[pyExpConstructor/@x[[i]]],{"{"->"[","}"->"]","Null"->"float('nan')"}],{i,Length@x}];
 
-ExternalValue[session,targetVarName<>"=pd.DataFrame("<>dict<>")"];
+ExternalEvaluate[session,targetVarName<>"=pd.DataFrame("<>dict<>")"];
 
 If[ArrayDepth@var==2,
 	ExternalEvaluate[session,targetVarName<>".set_index('index',inplace=True)"];
 ];
 
-]
+];
+
+
+(* ::Text:: *)
+(*All not supported types will be rendered as Null, which will be converted to float('nan'). *)
 
 
 pyExpConstructor[var_DateObject]:="'"<>DateString[var,"ISODateTime"]<>"'";
 pyExpConstructor[var_String]:="'"<>var<>"'";
-pyExpConstructor[var_]:=var;
+pyExpConstructor[var_/;NumericQ@var]:=var;
+pyExpConstructor[var_]:=Null;
 
 
 (* ::Subsection::Closed:: *)
@@ -1523,7 +1534,7 @@ Return[output]
 DistributionMode[list_List]:=ArgMax[PDF[SmoothKernelDistribution[list],x],x];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Plotting related*)
 
 
@@ -1616,9 +1627,14 @@ ImageSize->600,ImageMargins->15,opt];
 
 
 ExtractPlotData[plot_]:=Module[{points},
-points=Cases[plot,x_Point:>First@x,Infinity];
+points=Cases[plot,x_GraphicsComplex:>First@x,Infinity];
+
+If[Length[points]==0,
+points=Cases[plot,x_Point:>First@x,Infinity];];
+
 If[Length[points]==0,
 points=Cases[plot,x_Line:>First@x,Infinity];];
+
 If[Length[points]==0,points=$Failed;,points=points//First];
 
 Return[points]
@@ -1636,6 +1652,27 @@ Show[plot,Plot[fit,{x,Min[data[[All,1]]],Max[data[[All,1]]]},PlotStyle->Red],Epi
 FigureAlbum[figures_List]:=With[{lables=Table[First@Values@AbsoluteOptions[figures[[j]],PlotLabel]/.None->j,{j,Length@figures}]},
 	Manipulate[AssociationThread[lables->figures][i],{i,lables}]
 ];
+
+
+(* ::Subsection::Closed:: *)
+(*PyPlots*)
+
+
+PyPlot[session_,var_Dataset,plotType_:"line"]:=Module[{cols},
+
+ExternalEvaluate[session,"if 'pd' not in locals():
+	import pandas as pd"];
+ExternalEvaluate[session,"if 'plt' not in locals():
+	import matplotlib.pyplot as plt"];
+
+cols=DatasetColumns@var;
+
+DatasetToPython[session,var,"data"];
+
+ExternalEvaluate[session,"data.plot(kind='"<>plotType<>"',x='"<>cols[[1]]<>"',y='"<>cols[[2]]<>"')
+plt.show()"]
+
+]
 
 
 (* ::Chapter:: *)
@@ -2272,7 +2309,7 @@ data["data"],data["columns"],opt,NominalPower->data["NominalPower"],Tc->data["Tc
 
 
 TimeSeriesSummary[tsOutput_Association,timeFormat_:"ISODate"]:=With[{merged=MergeData[DeleteCases[tsOutput//Values,Null],"Fast"]},
-Grid[Append[Append[Prepend[ReduceDateObject[merged,timeFormat],Prepend[Keys@tsOutput,""]],Prepend[Rest@Total@merged,"total"]],Prepend[Rest@Mean@merged,"mean"]],Frame->All]];
+Grid[Append[Append[Prepend[ReduceDateObject[merged,timeFormat],Prepend[extract[tsOutput//Values,_?(#=!=Null&),1][Keys@tsOutput],""]],Prepend[Rest@Total@merged,"total"]],Prepend[Rest@Mean@merged,"mean"]],Frame->All]];
 
 
 TimeSeriesSummary["Month",aggregation_:Total][tsOutput_Grid]:=With[{merged=Normal[tsOutput][[2;;-3]],titles=First@Normal@tsOutput},
