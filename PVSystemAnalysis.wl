@@ -33,108 +33,82 @@ BeginPackage["PVSystemAnalysis`"];
 (*General*)
 
 
-If[ Not@ValueQ[pick::usage],
 pick::usage = "pick[condition_][x_] picks the elements from list/array x where the corresponding elements from another list/array meets a certain condition. Always wraps results in a list even when there is only one element (similar behavior to Position, Pick, ...).
-Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. "]
+Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. ";
 
-If[ Not@ValueQ[Where::usage],
 Where::usage = "Where[condition,na (default Null)][x] sets elements from list/array x where the corresponding elements from another list/array meets a certain condition to na. 
-Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. "]
+Condition must be spcified in the format: another_list/array > (n or list/array of same dimenstion), argument must be numeric, support >, \[GreaterEqual], <, \[LessEqual], ==, \[NotEqual] and logical operators. ";
 Where::dmism="Dimension mismatch where boolean mask is `1` and target is `2`";
 
-If[ Not@ValueQ[extract::usage],
 extract::usage = "extract[x_,pattern_] gives an operator that can extract corresponding elements from another list. Unlike other functions, single results will be returned as is instead of inside a list. 
-e.g. extract[{1,2,4,5},_?(#>3&)]@{1,2,3,9} gives {3,9}"]
+e.g. extract[{1,2,4,5},_?(#>3&)]@{1,2,3,9} gives {3,9}";
 
-If[ Not@ValueQ[LogSpace::usage],
-LogSpace::usage = "LogSpace[a,b,n] generates n logarithmically spaced points in the interval [a,b]. "]
+LogSpace::usage = "LogSpace[a,b,n] generates n logarithmically spaced points in the interval [a,b]. ";
 
-If[ Not@ValueQ[MeshGrid::usage],
-MeshGrid::usage = "MeshGrid[xlist,ylist] generates a mesh grid similar to Numpy function meshgrid. "]
+MeshGrid::usage = "MeshGrid[xlist,ylist] generates a mesh grid similar to Numpy function meshgrid. ";
 
-If[ Not@ValueQ[MeshGridCoord::usage],
-MeshGridCoord::usage = "MeshGridCoord[xlist,ylist] generates a mesh grid of {x,y} coordinate pairs. "]
+MeshGridCoord::usage = "MeshGridCoord[xlist,ylist] generates a mesh grid of {x,y} coordinate pairs. ";
 
-If[ Not@ValueQ[FromAssociation::usage],
-FromAssociation::usage = "FromAssociation[x] converts an association to a flat table with keys as the first column. "]
+FromAssociation::usage = "FromAssociation[x] converts an association to a flat table with keys as the first column. ";
 
 
-If[ Not@ValueQ[ToDataset::usage],
-ToDataset::usage = "ToDataset[table,titles_:\"Default\",index_:None] performs quick conversion of a flat table to a dataset assuming first row as titles (column names). \
-When table does not contain column names, the title row can be supplied as the second argument. \
-Index can be specified, in which case should be given as an integer indicating which column is used as index."]
+ToDataset::usage = "ToDataset[table,titles_:\"Default\",index_:None] performs quick conversion of a flat table to a dataset assuming first row as titles (column names). 
+When table does not contain column names, the title row can be supplied as the second argument. 
+Index can be specified, in which case should be given as an integer indicating which column is used as index.";
 
-If[ Not@ValueQ[FromDataset::usage],
-FromDataset::usage = "FromDataset[dataset,showHeader:False] convert a dataset to a table."]
+FromDataset::usage = "FromDataset[dataset,showHeader:False] convert a dataset to a table.";
 
-If[ Not@ValueQ[AddIndex::usage],
-AddIndex::usage = "AddIndex[dataset,index:0,drop_:True] adds index to a flat dataset by converting the n^th column specified by 'index' (0 means natural indexing). Note that duplicate values will be overwritten if any column is used as index. "]
+AddIndex::usage = "AddIndex[dataset,index:0,drop_:True] adds index to a flat dataset by converting the n^th column specified by 'index' (0 means natural indexing). Note that duplicate values will be overwritten if any column is used as index. ";
 
-If[ Not@ValueQ[DropIndex::usage],
-DropIndex::usage = "Remove index into flat dataset. "]
+DropIndex::usage = "Remove index into flat dataset. ";
 
-If[ Not@ValueQ[DatasetColumns::usage],
-DatasetColumns::usage = "Gives the column names of a flat dataset. "]
+DatasetColumns::usage = "Gives the column names of a flat dataset. ";
 
-If[ Not@ValueQ[DatasetIndices::usage],
-DatasetIndices::usage = "Gives the indices of a row indexed dataset. "];
+DatasetIndices::usage = "Gives the indices of a row indexed dataset. ";
 
-If[ Not@ValueQ[RenameColumn::usage],
-RenameColumn::usage = "RenameColumn[replaceRules][dataset] replaces column names with a list of rules. "];
+RenameColumn::usage = "RenameColumn[replaceRules][dataset] replaces column names with a list of rules. ";
 
-If[ Not@ValueQ[AppendColumn::usage],
 AppendColumn::usage = "AppendColumn[array_List, x] appends x to array as a column. 
 AppendColumn[array_Dataset, x_,colName:\"new_column\"] appends column to dataset with a column name. 
-AppendColumn[x] and AppendColumn[x, colName(needs to be string)] are operator forms to be applied to array/Dataset and Dataset(only) respectively. "];
+AppendColumn[x] and AppendColumn[x, colName(needs to be string)] are operator forms to be applied to array/Dataset and Dataset(only) respectively. ";
 
-If[ Not@ValueQ[CalcFirstOrderDiff::usage],
 CalcFirstOrderDiff::usage = "CalcFirstOrderDiff[dataset,col:{__String}:All,inPercentage:{__String}:None] calculates first order differences for selected columns in col and merge with original dataset. \
-inPercentage specifies columns for which FOD is calculated in percentage. FOD is always associated with the end point of each (time) step (each row is one step). "];
+inPercentage specifies columns for which FOD is calculated in percentage. FOD is always associated with the end point of each (time) step (each row is one step). ";
 
 
-If[ Not@ValueQ[take::usage],
-take::usage = "Operator form of function Take."];
+take::usage = "Operator form of function Take.";
 
-If[ Not@ValueQ[TestArray::usage],
-TestArray::usage = "TestArray[row_,col_] generates a row by col position numbered test array."];
+TestArray::usage = "TestArray[row_,col_] generates a row by col position numbered test array.";
 
-If[ Not@ValueQ[first::usage],
-first::usage = "Copy of function First except when encountering input that is not a list, returns input unchanged. \
-This is useful for mapping First to outputs from a listable function but not sure whether there are multiple outputs or only one."];
+first::usage = "Copy of function First except when encountering input that is not a list, returns input unchanged. 
+This is useful for mapping First to outputs from a listable function but not sure whether there are multiple outputs or only one.";
 
-If[ Not@ValueQ[GroupbyDay::usage],
-GroupbyDay::usage = "Operator form of function GroupBy to group by date of timestamp. Timestamp needs to be the first column. "];
+GroupbyDay::usage = "Operator form of function GroupBy to group by date of timestamp. Timestamp needs to be the first column. ";
 
-If[ Not@ValueQ[LookupIndex::usage],
-LookupIndex::usage = "LookupIndex[list] generates a lookup table (association) of numbered index <|element1->1, element2->2, ...|>. "];
+LookupIndex::usage = "LookupIndex[list] generates a lookup table (association) of numbered index <|element1->1, element2->2, ...|>. ";
 
 
 (* ::Subsection::Closed:: *)
 (*Time related*)
 
 
-If[ Not@ValueQ[ReduceDateObject::usage],
-ReduceDateObject::usage = "ReduceDateObject[dataset_,dateFormat_:{\"Year\",\"-\",\"Month\",\"-\",\"Day\",\" \",\"Hour\",\":\",\"Minute\",\":\",\"Second\"},position_:1] does quick conversion of DateObject back to string according to specified dateFormat. "]
+ReduceDateObject::usage = "ReduceDateObject[dataset_,dateFormat_:{\"Year\",\"-\",\"Month\",\"-\",\"Day\",\" \",\"Hour\",\":\",\"Minute\",\":\",\"Second\"},position_:1] does quick conversion of DateObject back to string according to specified dateFormat. ";
 
-If[ Not@ValueQ[ConvertDateObject::usage],
 ConvertDateObject::usage = "ConvertDateObject[dataset_,dateFormat_:Automatic,timezone_:$TimeZone,position_:1] does quick conversion of DateObject to show in a specified timezone. 
-Note: timezone default is set to machine local timezone (not dynamic). If timestamp is already in DateObject format, it will be converted to the specified timezone. "]
+dateFormat is allowed format for DateList, such as list of elements to be extracted (e.g. {\"Day\",\"Month\",\"Year\",\"Hour\",\"Minute\",\"Second\"}). Default interpretation would be month/day/year hour:minute:second. 
+Note: timezone default is set to machine local timezone (not dynamic). If timestamp is already in DateObject format, it will be converted to the specified timezone. ";
 
 
-If[ Not@ValueQ[ToTemporalData::usage],
-ToTemporalData::usage = "Quick conversion to a temporal data object."];
+ToTemporalData::usage = "Quick conversion to a temporal data object.";
 
-If[ Not@ValueQ[FromTemporalData::usage],
-FromTemporalData::usage = "Quick conversion from a temporal data object to extract paths."];
+FromTemporalData::usage = "Quick conversion from a temporal data object to extract paths.";
 
-If[ Not@ValueQ[RegularizeTimeSeries::usage],
 RegularizeTimeSeries::usage = "RegularizeTimeSeries[data, resampleMethod:Automatic, timesteps:Automatic] makes the timestamp spacing uniform by filling in missing timestamps.
 Assumes data is regular shaped table. Timestamps must be DateObject. 
-Resample method specification can be any of the forms accepted by TimeSeriesResample (default is linear interpolation, use None instead to fill in Missing). "];
+Resample method specification can be any of the forms accepted by TimeSeriesResample (default is linear interpolation, use None instead to fill in Missing). ";
 
-If[ Not@ValueQ[DetectResolution::usage],
 DetectResolution::usage = "DetectResolution[list,takeSize_:200] returns the prominent spacing between elements in the list by taking the first takeSize elements. \
-Warning will be issued if count of second common delta is greater than 5% of most common delta."];
+Warning will be issued if count of second common delta is greater than 5% of most common delta.";
 DetectResolution::noRegSpace = "Input series not regularly spaced (significant number of exceptions).";
 
 
@@ -142,79 +116,64 @@ DetectResolution::noRegSpace = "Input series not regularly spaced (significant n
 (*Data import and manipulation*)
 
 
-If[ Not@ValueQ[MultiImport::usage],
-MultiImport::usage = "Import multiple files at the same time."]
+MultiImport::usage = "Import multiple files at the same time.";
 
-If[ Not@ValueQ[Glimpse::usage],
-Glimpse::usage = "quick look at data dimension and first few rows."]
+Glimpse::usage = "Glimpse[data,rowsToShow:10] takes a quick look at data dimension and first few rows. Glimpse[rowToShow] is the operator form. ";
 
-If[ Not@ValueQ[MergeData::usage],
-MergeData::usage = "MergeData[datasets] merges multiple datasets with a common key (e.g. timestamp). The input needs to be a table of datasets: {dataset1, dataset2, ...}, output will be in dataset format even if inputs are tables. \
+MergeData::usage = "MergeData[datasets] merges multiple datasets with a common key (e.g. timestamp). The input needs to be a table of datasets: {dataset1, dataset2, ...}, output will be in dataset format even if inputs are tables. 
 Format of individual datasets must be tables, or flat (not hierarchical) and (only) column indexed Dataset objects. It is not advisable to use DateObject as the timestamp as its exact form may not be the same while appearing to be the same timestamp. 
 Default options are {KeyPosition->1,Header->False,JoinMethod->\"Outer\",keyCollisionFunction->Right}. 
-MergeData[tables,\"Fast\"] merges tables using a fast method assuming first column as common key. "]
+MergeData[tables,\"Fast\"] merges tables using a fast method assuming first column as common key. ";
 
 Options[MergeData]={KeyPosition->1,Header->False,JoinMethod->"Outer",keyCollisionFunction->Right};
 
-If[ Not@ValueQ[Resample::usage],
 Resample::usage = "Resample[dataset,groupBy:\"ISODate\"] returns an association from applying function GroupBy assuming first column is the timestamp. \
 Timestamp is removed from grouped data and appear as keys in the output association. 
-Resample[dataset,groupBy,func] further applies a function to each column of the grouped bins. "]
+Resample[dataset,groupBy,func] further applies a function to each column of the grouped bins. ";
 
 
-If[ Not@ValueQ[RunningAverage::usage],
-RunningAverage::usage = "This function select non-missing and daytime data, obtain averaged values for every x minute interval."]
+RunningAverage::usage = "This function select non-missing and daytime data, obtain averaged values for every x minute interval."
 
 Options[RunningAverage]={ReportPeriod->Quantity[10,"Minutes"]};
 
-If[ Not@ValueQ[DataSummary::usage],
-DataSummary::usage = "Simple summary of data shape."];
+DataSummary::usage = "Simple summary of data shape.";
 
-If[ Not@ValueQ[GetNASAPowerData::usage],
-GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location."];
+GetNASAPowerData::usage = "GetNASAPowerData[lat_,lon_,par_:\"ALLSKY_SFC_SW_DWN,T2M,WS10M,PRECTOT\",temporalType_:\"CLIMATOLOGY\",start_:Null,end_:Null] imports NASA POWER project data sets via API for a single location.";
 GetNASAPowerData::notime="time range required but not specified.";
 
-If[ Not@ValueQ[DatasetToPython::usage],
-DatasetToPython::usage = "DatasetToPython[session,var_Dataset,targetVarName_String] passes a dataset to python session as a pandas dataframe. Must have pandas imported in the python session. "];
+DatasetToPython::usage = "DatasetToPython[session,var_Dataset,targetVarName_String] passes a dataset to python session as a pandas dataframe. Must have pandas imported in the python session. ";
 
-If[ Not@ValueQ[InsertToSQL::usage],
 InsertToSQL::usage = "InsertToSQL[dataset,table,connection,start_:0,step_:5000] inserts a flat dataset to an SQL table from row number specified by start in batches specified by step. 
-InsertToSQL[table,connection,start,step] is the operator form. "];
+InsertToSQL[table,connection,start,step] is the operator form. ";
 
-If[ Not@ValueQ[ToSQL::usage],
-ToSQL::usage = "ToSQL[dataset,table,connection,ifExist:\"Replace\"] writes a flat dataset to an SQL table. Missing values will be filled with -9999. \
+ToSQL::usage = "ToSQL[dataset,table,connection,ifExist:\"Replace\"] writes a flat dataset to an SQL table. Missing values will be filled with -9999. 
 Need to ensure there is no mixed datatype for input dataset. 
-ToSQL[table,connection,ifExist] is the operator form. "];
+ToSQL[table,connection,ifExist] is the operator form. ";
 
 
 (* ::Subsection::Closed:: *)
 (*Quick ReportPeriod statistics*)
 
 
-If[ Not@ValueQ[PeriodSum::usage],
 PeriodSum::usage = "PeriodSum[data] calculates the sums of a binned time window. Data should be dataset or table of the format {{time, value1, value2, ...}, ...}. 
-Default options are: {MinDataPts->60,ReportPeriod->\"Day\",Scaling\[Rule]1}. Supported ReportPeriod are: \"Month\", \"Day\", \"Hour\", \"10 Minutes\". "]
+Default options are: {MinDataPts->60,ReportPeriod->\"Day\",Scaling\[Rule]1}. Supported ReportPeriod are: \"Month\", \"Day\", \"Hour\", \"10 Minutes\". ";
 
 Options[PeriodSum]={MinDataPts->60,ReportPeriod->"Day",Scaling->1};
 
-If[ Not@ValueQ[PeriodSpan::usage],
 PeriodSpan::usage = "PeriodSpan[data] calculates the span of values within each binned time window. Data should be dataset or table of the format {{time, value1, value2, ...}, ...}. 
-Default options are: {MinDataPts->60,ReportPeriod->\"Day\"}. Supported ReportPeriod are: \"Month\", \"Day\", \"Hour\", \"10 Minutes\". "]
+Default options are: {MinDataPts->60,ReportPeriod->\"Day\"}. Supported ReportPeriod are: \"Month\", \"Day\", \"Hour\", \"10 Minutes\". ";
 
 Options[PeriodSpan]={MinDataPts->60,ReportPeriod->"Day"};
 
-If[ Not@ValueQ[PeriodAverage::usage],
 PeriodAverage::usage = "PeriodAverage[data] calculates the arithmetic average within each binned time window. Data should be dataset or table of the format {{time, value1, value2, ...}, ...}. 
-Default options are: {MinDataPts->60,ReportPeriod->\"Day\"}. Supported ReportPeriod are: \"Month\", \"Day\", \"Hour\", \"10 Minutes\"."]
+Default options are: {MinDataPts->60,ReportPeriod->\"Day\"}. Supported ReportPeriod are: \"Month\", \"Day\", \"Hour\", \"10 Minutes\".";
 
 Options[PeriodAverage]={MinDataPts->60,ReportPeriod->"Day"};
 
-If[ Not@ValueQ[PeriodWeightedAvg::usage],
-PeriodWeightedAvg::usage = "PeriodWeightedAvg[data,weight] calculates the weighted average within each running time window. Data and weights should have the format {{time, value(s)}, ...}. "]
+PeriodWeightedAvg::usage = "PeriodWeightedAvg[data,weight] calculates the weighted average within each running time window. Data and weights should have the format {{time, value(s)}, ...}. ";
 
 Options[PeriodWeightedAvg]={MinDataPts->60,ReportPeriod->"Day"};
 
-If[ Not@ValueQ[PeriodStats::usage],
 PeriodStats::usage = "PeriodStats[data,start_time,end_time] calculates the stats within each running time window as defined by the option \"function\" (one of following: fnAvg, fnCount, fnCountValid, fnSum, fnWgtAvg).
 default options: {TimeStep->Quantity[1,\"Days\"],function->fnAvg,windowAlignment->Left,windowPadding->None,weightPosition->Null,\"TimeZone\"->$TimeZone}. 
 
@@ -227,19 +186,17 @@ No minimum data point requirement is defined, results will not be Missing as lon
 Make sure timestamp is contained in the first column and preferably in DateObject format to avoid ambiguous interpretation when converting to TimeSeries object. 
 PeriodStats conserves true time but may not output the DateObject in the original time zone unless the correct time zone is specified (to avoid error of not supported by TimeSeries functions, numerical offset will always be used internally for timezone specifications). 
 PeriodStats reorders unsorted data into one sorted by timestamp. 
-PeriodStats maps function in timesteps, so does not support binning by natural days/months. It is better used for reducing temporal resolution. "]
+PeriodStats maps function in timesteps, so does not support binning by natural days/months. It is better used for reducing temporal resolution. ";
 
 Options[PeriodStats]={TimeStep->Quantity[1,"Days"],function->fnAvg,windowAlignment->Left,windowPadding->None,weightPosition->Null,"TimeZone"->$TimeZone};
 
-If[ Not@ValueQ[PeriodMaster::usage],
 PeriodMaster::usage = "PeriodMaster[data, function_String(default \"fnAvg\")] maps functions to each binned time window. Data should be dataset or table of the format {{time, value1, value2, ...}, ...}. 
 Default options are: {MinDataPts->60,ReportPeriod->\"Day\"}. Supported ReportPeriod are: \"Month\", \"Day\", \"Hour\", \"10 Minutes\"
 Currently supported functions are: 
 - fnAvg: performs averaging to the binned dataset x with data dimension d, without including non-numeric data. 
 - fnCount: simply counts the number of data points present in each bin of time window.
 - fnCountValid: counts the number of valid numeric datapoints present in each bin of time window. 
-- fnSum: gives the sum of valid numeric datapoints present in each bin of time window.
-"]
+- fnSum: gives the sum of valid numeric datapoints present in each bin of time window.";
 
 Options[PeriodMaster]={MinDataPts->60,ReportPeriod->"Day"};
 
@@ -248,62 +205,47 @@ Options[PeriodMaster]={MinDataPts->60,ReportPeriod->"Day"};
 (*Supporting functions: *)
 
 
-If[ Not@ValueQ[fnAvg::usage],
-fnAvg::usage = "performs averaging to the binned dataset x with data dimension d, without including non-numeric data."]
+fnAvg::usage = "performs averaging to the binned dataset x with data dimension d, without including non-numeric data.";
 
-If[ Not@ValueQ[fnCount::usage],
-fnCount::usage = "simply counts the number of data points present in each bin of time window."]
+fnCount::usage = "simply counts the number of data points present in each bin of time window.";
 
-If[ Not@ValueQ[fnCountValid::usage],
-fnCountValid::usage = "counts the number of valid numeric datapoints present in each bin of time window."]
+fnCountValid::usage = "counts the number of valid numeric datapoints present in each bin of time window.";
 
-If[ Not@ValueQ[fnSum::usage],
-fnSum::usage = "gives the sum of valid numeric datapoints present in each bin of time window."]
+fnSum::usage = "gives the sum of valid numeric datapoints present in each bin of time window.";
 
 
 (* ::Subsection::Closed:: *)
 (*Maths*)
 
 
-If[ Not@ValueQ[DistributionMode::usage],
-DistributionMode::usage = "DistributionMode[list] calculates the mode of the distribution estimated by SmoothKernelDistribution. "];
+DistributionMode::usage = "DistributionMode[list] calculates the mode of the distribution estimated by SmoothKernelDistribution. ";
 
 
 (* ::Section::Closed:: *)
 (*Plotting related*)
 
 
-If[ Not@ValueQ[TwoAxisPlot::usage],
-TwoAxisPlot::usage = "Two axis plotting: TwoAxisPlot[{f,g},{x,x1,x2}]."]
+TwoAxisPlot::usage = "Two axis plotting: TwoAxisPlot[{f,g},{x,x1,x2}].";
 
-If[ Not@ValueQ[TwoAxisListPlot::usage],
-TwoAxisListPlot::usage = "Two axis plotting: TwoAxisListPlot[{f,g}]."]
+TwoAxisListPlot::usage = "Two axis plotting: TwoAxisListPlot[{f,g}].";
 
-If[ Not@ValueQ[TwoAxisListLinePlot::usage],
-TwoAxisListLinePlot::usage = "Two axis plotting: TwoAxisListLinePlot[{f,g}]."]
+TwoAxisListLinePlot::usage = "Two axis plotting: TwoAxisListLinePlot[{f,g}].";
 
-If[ Not@ValueQ[HighlightData::usage],
-HighlightData::usage = "HighlightData[data_,logic_,positions_:\"default\",color_:Red] labels the selected columns (specified by positions) in a certain color."];
+HighlightData::usage = "HighlightData[data_,logic_,positions_:\"default\",color_:Red] labels the selected columns (specified by positions) in a certain color.";
 
-If[ Not@ValueQ[HighlightDataPlot::usage],
-HighlightDataPlot::usage = "HighlightDataPlot[highlightData,plotType,opt] takes in highlighted data and plot as plotType."];
+HighlightDataPlot::usage = "HighlightDataPlot[highlightData,plotType,opt] takes in highlighted data and plot as plotType.";
 
-If[ Not@ValueQ[EnhancedShow::usage],
-EnhancedShow::usage = "Enhanced plots with some reformatting."];
+EnhancedShow::usage = "Enhanced plots with some reformatting.";
 
-If[ Not@ValueQ[ExtractPlotData::usage],
-ExtractPlotData::usage = "Extract datapoints from a plot."];
+ExtractPlotData::usage = "Extract datapoints from a plot.";
 
-If[ Not@ValueQ[AddTrendline::usage],
-AddTrendline::usage = "Add a line of best linear fit to a plot."];
+AddTrendline::usage = "Add a line of best linear fit to a plot.";
 
 Options[AddTrendline]={"ShowEquation"->True,"PlaceEquation"->Scaled[{0.6,0.8}]};
 
-If[ Not@ValueQ[FigureAlbum::usage],
-FigureAlbum::usage = "Inspect a set of plots."];
+FigureAlbum::usage = "Inspect a set of plots.";
 
-If[ Not@ValueQ[PyPlot::usage],
-PyPlot::usage = "PyPlot[session_,var_Dataset,plotType_:\"line\"] does x-y plot using matplotlib."];
+PyPlot::usage = "PyPlot[session_,var_Dataset,plotType_:\"line\"] does x-y plot using matplotlib.";
 
 
 (* ::Section:: *)
@@ -314,38 +256,30 @@ PyPlot::usage = "PyPlot[session_,var_Dataset,plotType_:\"line\"] does x-y plot u
 (*Solar geometry and meteorological*)
 
 
-If[ Not@ValueQ[DayLength::usage],
-DayLength::usage = "DayLength[Julian day,latitude] calculates day length in number of hours."]
+DayLength::usage = "DayLength[Julian day,latitude] calculates day length in number of hours.";
 
-If[ Not@ValueQ[RemoveNightTime::usage],
-RemoveNightTime::usage = "Remove data points corresponding to night time. At the same time converting timestamps to DateObjects. Default options: {\"DateFormat\"->{\"Day\",\"/\",\"Month\",\"/\",\"Year\",\" \",\"Hour\",\":\",\"Minute\"},Location->$GeoLocation,\"TimeZone\"->Null}. 
+RemoveNightTime::usage = "Remove data points corresponding to night time. At the same time converting timestamps to DateObjects. Default options: {\"DateFormat\"->Automatic (can be for e.g. {\"Day\",\"/\",\"Month\",\"/\",\"Year\",\" \",\"Hour\",\":\",\"Minute\"} or {\"Day\",\"Month\",\"Year\"),Location->$GeoLocation,\"TimeZone\"->Null}. 
 Works with tables or datasets with first column as the timestamps. 
 Automatically converts timestamp to DateObject if the timestamp is in string format, DateFormat specifies the format to interpret the date string. 
-Make sure timestamp of input data is in local timezone of the site but not of the local computer doing the evaluation. \
+Make sure timestamp of input data is in local timezone of the site but not of the local computer doing the evaluation. 
 As all timestamps will be converted to DateList which preserves the form but not the true time, time zone of the input timestamps must be specified explicitly (takes precedence) or by location (note that local time zone for a location may sometimes not be the intended time zone in the input data timestamps due to daylight saving time confusion, e.g. LocalTimeZone for Denver is MDT but timestamps in Denver are also commonly specified in MST). \
 If time zone is not explicitly specified, local time zone of the location is assumed. If input data timestamp is in string format, it must be denoted in the intended and specified timezone. If input data timestamp is a DateObject, it can be denoted in any time zone, true time will be preserved. However, it is still advisable to specify target timezone as the local time zone of the intended location (at least not to far from it), \
-otherwise may confuse and get Sunrise or Sunset time in the wrong day (in case where input data timestamp is on the other half of the globe as the intended location of which sunrise and sunset time is determined). "]
+otherwise may confuse and get Sunrise or Sunset time in the wrong day (in case where input data timestamp is on the other half of the globe as the intended location of which sunrise and sunset time is determined). ";
 
-Options[RemoveNightTime]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},Location->$GeoLocation,"TimeZone"->Null};
+Options[RemoveNightTime]={"DateFormat"->Automatic,Location->$GeoLocation,"TimeZone"->Null};
 
-If[ Not@ValueQ[ArrayPitch::usage],
-ArrayPitch::usage = "ArrayPitch[tilt, width, \[Theta]limit] calculates the required pitch given array tilt, collector width, and desired shading limit angle."];
+ArrayPitch::usage = "ArrayPitch[tilt, width, \[Theta]limit] calculates the required pitch given array tilt, collector width, and desired shading limit angle.";
 
-If[ Not@ValueQ[ShadeLimitAngle::usage],
-ShadeLimitAngle::usage = "ShadeLimitAngle[tilt, width, pitch] calculates the shading limit angle."];
+ShadeLimitAngle::usage = "ShadeLimitAngle[tilt, width, pitch] calculates the shading limit angle.";
 
-If[ Not@ValueQ[GCR::usage],
-GCR::usage = "GCR[tilt, \[Theta]limit] estimates the ground coverage ratio for a desired tilt and shading limit angle."];
+GCR::usage = "GCR[tilt, \[Theta]limit] estimates the ground coverage ratio for a desired tilt and shading limit angle.";
 
-If[ Not@ValueQ[AoiProjection::usage],
-AoiProjection::usage = "AoiProjection[tilt,orientation,sunZenith,sunAzimuth] returns the cosine of the incidence angle between sunlight and module plane."];
+AoiProjection::usage = "AoiProjection[tilt,orientation,sunZenith,sunAzimuth] returns the cosine of the incidence angle between sunlight and module plane.";
 
-If[ Not@ValueQ[AngleOfIncidence::usage],
-AngleOfIncidence::usage = "AngleOfIncidence[tilt,orientation,sunZenith,sunAzimuth] returns the incidence angle between sunlight and module plane."];
+AngleOfIncidence::usage = "AngleOfIncidence[tilt,orientation,sunZenith,sunAzimuth] returns the incidence angle between sunlight and module plane.";
 
-If[ Not@ValueQ[StablePeriodDetect::usage],
 StablePeriodDetect::usage = "StablePeriodDetect[data,irrColName(optional),threshold:20,length:5] detects stable periods and append a column with labels 0 or 1. \
-Input data should include at least two columns: {Timestamp,irradiance}. "];
+Input data should include at least two columns: {Timestamp,irradiance}. ";
 StablePeriodDetect::noIrr = "Error: irradiance column not properly defined.";
 StablePeriodDetect::multiIrr = "Multiple irradiance columns may be present, the first one will be selected. ";
 StablePeriodDetect::tablein = "Table input, assumes first two columns to be time and irradiance. ";
@@ -355,59 +289,45 @@ StablePeriodDetect::tablein = "Table input, assumes first two columns to be time
 (*PV system related calculations*)
 
 
-If[ Not@ValueQ[PR::usage],
-PR::usage = "PR[power,ratedPower,irradiance] calculates the performance ratio."]
+PR::usage = "PR[power,ratedPower,irradiance] calculates the performance ratio.";
 
-If[ Not@ValueQ[PRcorrT::usage],
-PRcorrT::usage = "PRcorrT[power,ratedPower,irradiance,T,Tc] calculates the temperature corrected performance ratio."]
+PRcorrT::usage = "PRcorrT[power,ratedPower,irradiance,T,Tc] calculates the temperature corrected performance ratio.";
 
-If[ Not@ValueQ[PRcorrW::usage],
-PRcorrW::usage = "PRcorrW[power,ratedPower,irradiance,T,Tc,avgT] calculates the temperature corrected performance ratio."]
+PRcorrW::usage = "PRcorrW[power,ratedPower,irradiance,T,Tc,avgT] calculates the temperature corrected performance ratio.";
 
-If[ Not@ValueQ[CalcPR::usage],
-CalcPR::usage = "CalcPR[table,powerCol,ratedPower,irrCol] calculates the performance ratio and append as a column for a dataset."]
+CalcPR::usage = "CalcPR[table,powerCol,ratedPower,irrCol] calculates the performance ratio and append as a column for a dataset.";
 
-If[ Not@ValueQ[CalcPRcorrT::usage],
-CalcPRcorrT::usage = "CalcPR[table,powerCol,ratedPower,irrCol,T,Tc] calculates the performance ratio and append as a column for a dataset."]
+CalcPRcorrT::usage = "CalcPR[table,powerCol,ratedPower,irrCol,T,Tc] calculates the performance ratio and append as a column for a dataset.";
 
-If[ Not@ValueQ[CalcPRcorrW::usage],
-CalcPRcorrW::usage = "CalcPR[table,powerCol,ratedPower,irrCol,T,Tc,avgT] calculates the performance ratio and append as a column for a dataset."]
+CalcPRcorrW::usage = "CalcPR[table,powerCol,ratedPower,irrCol,T,Tc,avgT] calculates the performance ratio and append as a column for a dataset.";
 
-If[ Not@ValueQ[VoltageRatio::usage],
 VoltageRatio::usage = "VoltageRatio[V,Voc,Gpoa,Tmod (in K),Ns,tempCoeff:-0.003,n:1] calculates the ratio of actual voltage to expected Voc under a certain operating condition with simple temperature and irradiance correction.
-VoltageRatio[V,Voc,Tmod (in K),tempCoeff:-0.003] calculates the expected ratio with temperature correction only. "];
+VoltageRatio[V,Voc,Tmod (in K),tempCoeff:-0.003] calculates the expected ratio with temperature correction only. ";
 
 (*If[ Not@ValueQ[VoltageRatio2::usage],
 VoltageRatio2::usage = "VoltageRatio2 calculates the ratio of actual voltage to Voc (STC and expected) without irradiance correction."]*)
 
-If[ Not@ValueQ[CurrentRatio::usage],
 CurrentRatio::usage = "CurrentRatio[current,Isc,Gpoa,Tmod (in K),tempCoeff:0.0005] calculates the ratio of actual current to expected Isc under a certain operating condition with temperature correction.
-CurrentRatio[current,Isc,Gpoa] calculates the ratio without temperature correction. "];
+CurrentRatio[current,Isc,Gpoa] calculates the ratio without temperature correction. ";
 
-If[ Not@ValueQ[Dispersion::usage],
-Dispersion::usage = "Dispersion[list] gives the standard deviation of the list normalized by its rough magnitude (mean of |list|). "];
+Dispersion::usage = "Dispersion[list] gives the standard deviation of the list normalized by its rough magnitude (mean of |list|). ";
 
-If[ Not@ValueQ[ConversionFactor::usage],
 ConversionFactor::usage = "Dictionary for factors to multiply when doing conversions.
-Supported keys: lookup (list all keys), J->kWh, \:4e07\:5343\:74e6->MW, \:4e07\:5343\:74e6->GW, Sum W/min->kWh, Sum W/5min->kWh, Sum W/10min->kWh, Sum W/15min->kWh, Sum W/hour->kWh, ohm*cm2->ohm*m2, mA/cm2->A/m2..."];
+Supported keys: lookup (list all keys), J->kWh, \:4e07\:5343\:74e6->MW, \:4e07\:5343\:74e6->GW, Sum W/min->kWh, Sum W/5min->kWh, Sum W/10min->kWh, Sum W/15min->kWh, Sum W/hour->kWh, ohm*cm2->ohm*m2, mA/cm2->A/m2...";
 
-If[ Not@ValueQ[CablingLoss::usage],
-CablingLoss::usage = "CablingLoss[current,cableLength,crossSection] calculates the cabling loss in W."];
+CablingLoss::usage = "CablingLoss[current,cableLength,crossSection] calculates the cabling loss in W.";
 
 Options[CablingLoss]={"NumLineCoeff"->1,"LengthCableFactor"->2,"Resistivity"->0.023};
 
-If[ Not@ValueQ[ModuleTemperature::usage],
-ModuleTemperature::usage = "ModuleTemperature[airT (in \[Degree]C), irradiance, Tc (default -0.003), \[Eta]stc (default 0.2), U-value (default 29)] estimates the PV module temperature based on simple heat balance model (Faiman 2008). "];
+ModuleTemperature::usage = "ModuleTemperature[airT (in \[Degree]C), irradiance, Tc (default -0.003), \[Eta]stc (default 0.2), U-value (default 29)] estimates the PV module temperature based on simple heat balance model (Faiman 2008). ";
 
-If[ Not@ValueQ[SimpleFaultDetect::usage],
-SimpleFaultDetect::usage = "SimpleFaultDetect[listGVIP,listPR,listIratio,listVratio] detects and highlights obvious faults."];
+SimpleFaultDetect::usage = "SimpleFaultDetect[listGVIP,listPR,listIratio,listVratio] detects and highlights obvious faults.";
 
 
 (* ::Subsection::Closed:: *)
 (*Analytical monitoring*)
 
 
-If[ Not@ValueQ[TimeSeriesInspection::usage],
 TimeSeriesInspection::usage = "High level time series inspection and plots of system performance KPIs. 
 {outputData,plots}=TimeSeriesInspection[data,columns(optional)], columns by default is {Timestamp,G,Vdc,Idc,Pdc,Vac,Iac,Pac}, others can include: {cum_meter_reading, Tmod}. 
 Default options are {NominalPower->Null,Tc->Null,InputResolution->1,ReportPeriod->\"Day\"}. 
@@ -421,43 +341,39 @@ Make sure all irradiance, voltage, current and power are positive in value.
 Insolation is calculated whenever there is valid irradiance reading, valid range of is 0-2000W/m^2. 
 Yield is calculated whenever there is valid power reading. 
 PR is calculated only when there is valid irradiance reading (values between 20-2000W/m^2) AND power reading. 
-PR for DC and AC side is calculated separately, so discrepancy may exist. "]
+PR for DC and AC side is calculated separately, so discrepancy may exist. ";
 
 Options[TimeSeriesInspection]={NominalPower->Null,Tc->Null,InputResolution->1,ReportPeriod->"Day"};
 
-If[ Not@ValueQ[TimeSeriesSummary::usage],
 TimeSeriesSummary::usage = "Quick summary table of outputs from TimeSeriesInspection. 
-Can apply to the primary summary table again with TimeSeriesSummary[\"Month\",aggregation_method (default is Total)] or TimeSeriesSummary[\"Year\",aggregation_method] in order to get monthly or yearly summary. "]
+Can apply to the primary summary table again with TimeSeriesSummary[\"Month\",aggregation_method (default is Total)] or TimeSeriesSummary[\"Year\",aggregation_method] in order to get monthly or yearly summary. ";
 
-If[ Not@ValueQ[TimeSeriesInspect::usage],
-TimeSeriesInspect::usage = "TimeSeriesInspect[data,start,end,plot options] returns {cropped timeseries, DateListPlots for each column}. "]
+TimeSeriesInspect::usage = "TimeSeriesInspect[data,start,end,plot options] returns {cropped timeseries, DateListPlots for each column}. ";
 
-If[ Not@ValueQ[TimeSeriesAlbum::usage],
 TimeSeriesAlbum::usage = "TimeSeriesAlbum[dataIn,groupBy:\"ISODate\",plotOptions] gives an object containing data slices and their plots for each column. 
-Argument groupBy specifies how data should be binned and the corresponding key formats for each bin, can take in permitted arguments for function DateString.
-Object contains four elements: \
-- \"bins\" gives keys for time slices; \
-- \"columns\" gives columns (parameters); \
-- \"data\" gives a pure function with one argument call (bin) and returns data in that bin; \
-- \"plot\" gives a pure function with two argument calls: DateListPlot[bin,column]; \
-- \"album\" is interactive exploration of data. "]
+Argument groupBy specifies how data should be binned and the corresponding key formats for each bin, can take in permitted arguments for function DateString. 
+Object contains four elements: 
+- \"bins\" gives keys for time slices; 
+- \"columns\" gives columns (parameters); 
+- \"data\" gives a pure function with one argument call (bin) and returns data in that bin; 
+- \"plot\" gives a pure function with two argument calls: DateListPlot[bin,column]; 
+- \"album\" is interactive exploration of data. ";
 
-If[ Not@ValueQ[CrossSectionInspection::usage],
 CrossSectionInspection::usage = "Cross sectional inspection and plots of system performance. Default columns are {\"G\",\"Vdc\",\"Idc\",\"Pdc\",\"Tmod\",\"Vac\",\"Iac\",\"Pac\",\"Tamb\"}. 
 Default options are {NominalPower->Null,PlotOptions->{}}. Use PlotOptions to specify additional options for ListPlot.  
 crossPlots=CrossSectionInspection[pvData] takes in pv data object prepared by PVDataPrep. Options supplied at this stage overides that in PVDataPrep. 
 crossPlots=CrossSectionInspection[pvData,\"bin\"] takes in subsetted pv data object prepared by PVDataPrep with key \"bin\".
-{keys,crossPlot}=CrossSectionInspection[pvData,\"ZoomIn\",groupBy (default is by days)] gives crossPlot as a function to inspect each bin of data. "]
+{keys,crossPlot}=CrossSectionInspection[pvData,\"ZoomIn\",groupBy (default is by days)] gives crossPlot as a function to inspect each bin of data. ";
 
 Options[CrossSectionInspection]={NominalPower->Null, PlotOptions->{}};
 
-If[ Not@ValueQ[PVDataPrep::usage],
 PVDataPrep::usage = "PVDataPrep[data,columns,nominal_power,groupBy(optional)] prepares a PV data object to be passed into analytical monitoring functions. Returns an association with keys: {\"PVDataObject\"=True,\"data\",\"columns\",\"data_binned\",\"bins\",\"NominalPower\",\"InputResolution\",\"Tc\",\"ReportPeriod\"}.
 Default options are: {\"DateFormat\"->{\"Day\",\"/\",\"Month\",\"/\",\"Year\",\" \",\"Hour\",\":\",\"Minute\"},\"TimeZone\"\[Rule]$TimeZone,\"Pdc_unit\"\[Rule]\"kW\",\"Pac_unit\"\[Rule]\"kW\",\"Temperature_unit\"\[Rule]\"Celcius\",\"Capacity_unit\"\[Rule]\"kW\",\
 Tc->Null,\"Isc\"\[Rule]Null,\"Voc\"\[Rule]Null,\"Ns\"\[Rule]Null,
-ReportPeriod->\"Day\",InputResolution->Automatic,DerivedMetrics\[Rule]True}. \
-Input resolution can be auto detected by taking upto the first 200 elements and check the time delta. \
-If Isc and Voc are specified, output data also contains additional columns containing Iratio and Vratio. "]
+ReportPeriod->\"Day\",InputResolution->Automatic,DerivedMetrics\[Rule]True}. 
+Standard column naming\:ff1a {\"Timestamp\",\"G\",\"Vdc\",\"Idc\",\"Pdc\",\"Tmod\",\"Vac\",\"Iac\",\"Pac\",\"Tamb\"}. 
+Input resolution can be auto detected by taking upto the first 200 elements and check the time delta. 
+If Isc and Voc are specified, output data also contains additional columns containing Iratio and Vratio. ";
 
 Options[PVDataPrep]={"DateFormat"->{"Day","/","Month","/","Year"," ","Hour",":","Minute"},"TimeZone"->$TimeZone,"Pdc_unit"->"kW","Pac_unit"->"kW","Temperature_unit"->"Celcius","Capacity_unit"->"kW",
 Tc->Null,"Isc"->Null,"Voc"->Null,"Ns"->Null,
@@ -469,21 +385,16 @@ ReportPeriod->"Day",InputResolution->Automatic,DerivedMetrics->True};
 (*Spectrum related*)
 
 
-If[ Not@ValueQ[SpecScale::usage],
-SpecScale::usage = "SpecScale[scale_][spec_] performs simple scaling of spectrum. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. "]
+SpecScale::usage = "SpecScale[scale_][spec_] performs simple scaling of spectrum. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. ";
 
-If[ Not@ValueQ[SpecIntensity::usage],
-SpecIntensity::usage = "This function calculates integrated intensity from a set of spectra. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. "]
+SpecIntensity::usage = "This function calculates integrated intensity from a set of spectra. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. ";
 
-If[ Not@ValueQ[SpecAverage::usage],
-SpecAverage::usage = "This function calculates average spectrum from a set of spectra. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. "]
+SpecAverage::usage = "This function calculates average spectrum from a set of spectra. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. ";
 
-If[ Not@ValueQ[APECalc::usage],
-APECalc::usage = "This function calculates (the list of) average photon energy (APE) from a set of spectra. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. All quantities should be in SI units. "]
+APECalc::usage = "This function calculates (the list of) average photon energy (APE) from a set of spectra. Format for input spectra set should be {{wavelength}, {spec1}, {spec2}, ...}. All quantities should be in SI units. ";
 
-If[ Not@ValueQ[Photocurrent::usage],
 Photocurrent::usage = "Photocurrent[spectra] calculates (the list of) implied short circuit current from a set of spectra. 
-Photocurrent[spec_,{wMin_,wMax_}] calculates it for a given range of wavelength. "]
+Photocurrent[spec_,{wMin_,wMax_}] calculates it for a given range of wavelength. ";
 
 
 (* ::Section::Closed:: *)
@@ -887,11 +798,13 @@ Return[output]
 (*Quick glimpse of imported data*)
 
 
-Glimpse[data_List,rowsToShow_:10]:=Block[{},
+Glimpse[data_List,rowsToShow_Integer:10]:=Block[{},
 	Print@Dimensions@data;
 	Print@TableForm@Prepend[Take[data,rowsToShow],Range@Dimensions[data][[2]]];
 ];
 
+
+Glimpse[rowsToShow_Integer][data_List]:=Glimpse[data,rowsToShow];
 
 Glimpse[data_Dataset]:=Glimpse[FromDataset[data,True]];
 
@@ -1138,7 +1051,7 @@ dataset=datasetIn/.{_Missing->-9999,True->1,False->0};
 
 If[SQLTableNames[conn,table]==={} || (SQLTableNames[conn,table]=!={} && ifExist=="Replace"),
 
-columns=dataset//DatasetColumns//StringReplace[{" "->"_","."->"","\\"->"_"}];
+columns=dataset//DatasetColumns//StringReplace[{" "->"_","."->"","\\"->"_"}]; (* make sure column names are legitimate *)
 sampled=RandomSample[dataset,UpTo@200]//FromDataset//Transpose; (* look at individual columns *)
 
 flagColumn=DeleteCases[MapIndexed[If[CountDistinct[Head/@#1]>1,First@#2]&,sampled],Null];
@@ -1146,7 +1059,7 @@ If[Length@flagColumn>0,
 Print["warning: columns with non uniform data types: "<>ToString@flagColumn];
 ];
 
-If[ContainsAny[columnTypeMap/@sampled,{{}}],Abort[];];
+If[ContainsAny[columnTypeMap/@sampled,{{}}],Abort[];]; (* check if data type for all columns is successfully mapped, otherwise abort *)
 sqlColumns=Table[SQLColumn@@Prepend[columnTypeMap@sampled[[i]],columns[[i]]],{i,Length@columns}];
 (*Echo@sqlColumns;*)
 
@@ -1155,6 +1068,9 @@ If[SQLTableNames[conn,table]=!={} && ifExist=="Replace",
 ];
 
 SQLCreateTable[conn,SQLTable[table],sqlColumns];
+
+(* DateObject may be inserted wrongly, reduce to string first for safer operation *)
+dataset=ReduceDateObject[dataset,"ISODateTime",Position[sqlColumns,SQLColumn[_,"DataTypeName"->"DATETIME"]]];
 
 dataset//RenameColumn[Normal@AssociationThread[dataset//DatasetColumns,columns]]//InsertToSQL[table,connection];
 
@@ -1716,7 +1632,11 @@ data=If[Head@dataIn===Dataset,Normal@Values@dataIn,dataIn];
 (*convert timestamps to DateLists, and group the dataset by days*)
 convertTime=MapAt[
 	If[Head@#===String,
-		Check[DateList@{#,dateFormat},Check[DateList@#,{0,0,0}]] (* if dateFormat doesn't work, try directly applying DateList, if still doesn't work, discard that timestamp; no need timezone info as only form is preserved *)
+		If[dateFormat===Automatic,
+			Check[DateList@#,{0,0,0},DateList::str]
+			,
+			Check[DateList@{#,dateFormat},Check[DateList@#,{0,0,0},DateList::str],{DateList::str,DateList::arg}] (* if dateFormat doesn't work, try directly applying DateList, if still doesn't work, discard that timestamp; no need timezone info as only form is preserved *)
+		]
 		,
 		DateList[#,TimeZone->timezone]]&
 	,1];
@@ -1784,7 +1704,7 @@ AoiProjection[tilt_,orientation_,sunZenith_,sunAzimuth_]:=Module[{planeNormal,su
 planeNormal={Sin[tilt \[Degree]]*Sin[orientation \[Degree]],Sin[tilt \[Degree]]*Cos[orientation \[Degree]],Cos[tilt \[Degree]]}; (* unit vector for plane normal *)
 sunLight={Sin[sunZenith \[Degree]]*Sin[sunAzimuth \[Degree]],Sin[sunZenith \[Degree]]*Cos[sunAzimuth \[Degree]],Cos[sunZenith \[Degree]]}; (* unit vector for sun light *)
 
-projection=planeNormal.sunLight; (* dot product of two unit vectors *)
+projection=planeNormal . sunLight; (* dot product of two unit vectors *)
 
 Return@projection;
 ];
@@ -1831,22 +1751,26 @@ If[MemberQ[cols,irrCol<>"_D_D"],
 	sod=data[All,{timeColName,irrCol,irrCol<>"_D_D"}]//FromDataset;
 , (* else *)
 
-(* second order differencing, returning table with columns Timestamp, G, G_D, Timestamp_D, G_D_D *)
+	(* second order differencing, returning table with columns Timestamp, G, G_D, Timestamp_D, G_D_D *)
 	sod=CalcFirstOrderDiff[
 			CalcFirstOrderDiff[data[All,{timeColName,irrCol}],{irrCol,timeColName}]//Select[#[timeColName<>"_D"]==deltas&]
 		,{irrCol<>"_D"}];
+	
+	(* keep only Timestamp, G, G_D_D *)
 	sod=sod[All,{timeColName,irrCol,irrCol<>"_D_D"}]//FromDataset;
 ];
 
 (* select stable period if second order difference is less than threshold for consecutive times > length *)
 stablePeriod=Flatten[Select[Split[sod,Abs@#2[[-1]]<threshold&],Length@#>length&],1]; 
-If[stablePeriod=!={},stablePeriod=stablePeriod[[All,;;3]];];
+(*If[stablePeriod=!={},stablePeriod=stablePeriod[[All,;;3]];];*)
 
-nonStablePeriod=Complement[sod[[All,;;3]],stablePeriod]//AppendColumn[0];
+(* append 0 as label to non stable period *)
+nonStablePeriod=Complement[sod,stablePeriod]//AppendColumn[0];
 
 Return@
+SortBy[First]@
 MergeData[
-	{data,ToDataset[SortBy[nonStablePeriod~Join~AppendColumn[stablePeriod,1],First],{timeColName,irrCol,irrCol<>"_D_D","is_stable"}]}
+	{data,ToDataset[nonStablePeriod~Join~AppendColumn[stablePeriod,1],{timeColName,irrCol,irrCol<>"_D_D","is_stable"}]}
 ];
 
 ];
