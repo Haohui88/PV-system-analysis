@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*General functions*)
 
 
@@ -52,7 +52,8 @@ MeshGridCoord::usage = "MeshGridCoord[xlist,ylist] generates a mesh grid of {x,y
 FromAssociation::usage = "FromAssociation[x] converts an association to a flat table with keys as the first column. ";
 
 
-ToDataset::usage = "ToDataset[table,titles_:\"Default\",index_:None] performs quick conversion of a flat table to a dataset assuming first row as titles (column names). 
+ToDataset::usage = "ToDataset[table,titles,index_:None] performs quick conversion of a flat table to a dataset assuming first row as titles (column names). 
+ToDataset[table] or ToDataset[table,\"Default\",index] assumes first row contains column names. 
 When table does not contain column names, the title row can be supplied as the second argument. 
 Index can be specified, in which case should be given as an integer indicating which column is used as index.";
 
@@ -235,6 +236,8 @@ HighlightData::usage = "HighlightData[data_,logic_,positions_:\"default\",color_
 
 HighlightDataPlot::usage = "HighlightDataPlot[highlightData,plotType,opt] takes in highlighted data and plot as plotType.";
 
+AddTooltip::usage = "Add tooltip label of format x:y to each row of a table with 2 columns. "
+
 EnhancedShow::usage = "Enhanced plots with some reformatting.";
 
 ExtractPlotData::usage = "Extract datapoints from a plot.";
@@ -248,7 +251,21 @@ FigureAlbum::usage = "Inspect a set of plots.";
 PyPlot::usage = "PyPlot[session_,var_Dataset,plotType_:\"line\"] does x-y plot using matplotlib.";
 
 
-(* ::Section:: *)
+ExploreGraphics::usage="Pass a Graphics object to explore it by zooming and panning with left and right mouse buttons respectively. Left click once to reset view.";
+OptAxesRedraw::usage="Option for ExploreGraphics to specify redrawing of axes. Default True.";
+Options[ExploreGraphics]={OptAxesRedraw->True};
+
+GetPlotRange::usage="GetPlotRange[gr] returns the actual unpadded plot range of graphics gr. GetPlotRange[gr, True] returns the actual padded plot range of gr. GetPlotRange can handle Graphics, Graphics3D and Graph objects.";
+
+PlotExplorer::usage="PlotExplorer[plot] returns a manipulable version of plot. 
+PlotExplorer can handle Graph and Graphics objects and plotting functions like Plot, LogPlot, ListPlot, DensityPlot, Streamplot, etc. \
+PlotExplorer allows the modification of the plot range, image size and aspect ratio. If the supplied argument is a full specification of a plotting function holding its first argument (e.g. Plot) the result offers functionality to replot the function to the modified plot range. \
+PlotExplorer has attribute HoldFirst.";
+AppearanceFunction::usage="AppearanceFunction is an option for PlotExplorer that specifies the appearance function of the menu button. Use Automatic for the default appearance, Identity to display a classic button or None to omit the menu button.";
+MenuPosition::usage="MenuPosition is an option for PlotExplorer that specifies the position of the (upper right corner of the) menu button within the graphics object.";
+
+
+(* ::Section::Closed:: *)
 (*Solar related*)
 
 
@@ -509,7 +526,7 @@ _,(*anything else*)
 (*Index can be specified, in which case should be given as an integer indicating which column is used as index. *)
 
 
-ToDataset[table_List,titles_:"Default",index_:None]:=Module[{dataset},
+ToDataset[table_List,titles_,index_:None]:=Module[{dataset},
 If[titles==="Default",
 	dataset=AssociationThread[First@table->#]&/@Rest[table]//Dataset;
 ,
@@ -522,6 +539,8 @@ If[index=!=None&&IntegerQ@index,
 
 Return[dataset]
 ];
+
+ToDataset[table_List]:=ToDataset[table,"Default",None];
 
 
 (* ::Text:: *)
@@ -1045,23 +1064,29 @@ ProgressIndicator[i,{start,Last@indList}]]
 InsertToSQL[table_String,connection_,start_:0,step_:5000][dataset_Dataset/;ArrayDepth@dataset==1]:=InsertToSQL[dataset,table,connection,start,step];
 
 
-ToSQL[datasetIn_Dataset/;ArrayDepth@datasetIn==1,table_String,connection_,ifExist_:"Replace"]:=Module[{dataset,columns,sampled,heads,flagColumn,sqlColumns},
+ToSQL[datasetIn_Dataset/;ArrayDepth@datasetIn==1,table_String,connection_,ifExist_:"Replace"]:=Module[{dataset,columns,sampled,heads,flagColumn,sqlColumns,columnTypeMapping},
 
 dataset=datasetIn/.{_Missing->-9999,True->1,False->0};
 
 If[SQLTableNames[conn,table]==={} || (SQLTableNames[conn,table]=!={} && ifExist=="Replace"),
 
 columns=dataset//DatasetColumns//StringReplace[{" "->"_","."->"","\\"->"_"}]; (* make sure column names are legitimate *)
-sampled=RandomSample[dataset,UpTo@200]//FromDataset//Transpose; (* look at individual columns *)
+sampled=RandomSample[dataset,UpTo@30000]//FromDataset//Transpose; (* look at individual columns *)
 
 flagColumn=DeleteCases[MapIndexed[If[CountDistinct[Head/@#1]>1,First@#2]&,sampled],Null];
 If[Length@flagColumn>0,
 Print["warning: columns with non uniform data types: "<>ToString@flagColumn];
 ];
 
-If[ContainsAny[columnTypeMap/@sampled,{{}}],Abort[];]; (* check if data type for all columns is successfully mapped, otherwise abort *)
-sqlColumns=Table[SQLColumn@@Prepend[columnTypeMap@sampled[[i]],columns[[i]]],{i,Length@columns}];
-(*Echo@sqlColumns;*)
+columnTypeMapping=columnTypeMap/@sampled;
+If[ContainsAny[columnTypeMapping,{{}}],
+Echo[Position[columnTypeMapping,{}],"column in trouble: "];
+Print["unsuccessful mapping of data types"];
+Abort[];
+]; (* check if data type for all columns is successfully mapped, otherwise abort *)
+
+sqlColumns=Table[SQLColumn@@Prepend[columnTypeMapping[[i]],columns[[i]]],{i,Length@columns}];
+Echo[sqlColumns,"data type mapping: "];
 
 If[SQLTableNames[conn,table]=!={} && ifExist=="Replace",
 	SQLDropTable[conn,table];
@@ -1072,6 +1097,7 @@ SQLCreateTable[conn,SQLTable[table],sqlColumns];
 (* DateObject may be inserted wrongly, reduce to string first for safer operation *)
 dataset=ReduceDateObject[dataset,"ISODateTime",Position[sqlColumns,SQLColumn[_,"DataTypeName"->"DATETIME"]]];
 
+Echo[Normal@AssociationThread[dataset//DatasetColumns,columns],"column renaming: "];
 dataset//RenameColumn[Normal@AssociationThread[dataset//DatasetColumns,columns]]//InsertToSQL[table,connection];
 
 , (*else*)
@@ -1085,8 +1111,8 @@ dataset//InsertToSQL[table,connection];
 
 ToSQL[table_String,connection_,ifExist_:"Replace"][datasetIn_Dataset/;ArrayDepth@datasetIn==1]:=ToSQL[datasetIn,table,connection,ifExist];
 
-columnTypeMap[x_]:=Module[{heads=Union[Head/@x]},
-Switch[heads,
+
+columnTypeDict[heads_]:=Switch[heads,
 	{DateObject},
 		{"DataTypeName"->"DATETIME"},
 	{Real},
@@ -1097,10 +1123,17 @@ Switch[heads,
 		If[Max@Abs@x<10,{"DataTypeName"->"TINYINT"},{"DataTypeName"->"INT"}],
 	{String},
 		{"DataTypeName"->"VARCHAR", "DataLength"->Max[Max[StringLength/@x],255]},
+	{Integer,String},
+		{"DataTypeName"->"VARCHAR", "DataLength"->Max[Max[StringLength/@Cases[x,_String]],255]},
+	{Integer,Real,String},
+		{"DataTypeName"->"VARCHAR", "DataLength"->Max[Max[StringLength/@Cases[x,_String]],255]},
+	{Real,String},
+		{"DataTypeName"->"VARCHAR", "DataLength"->Max[Max[StringLength/@Cases[x,_String]],255]},
 	_,
 		{}
-]
 ];
+
+columnTypeMap[x_]:=columnTypeDict[Union[Head/@x]];
 
 
 (* ::Section::Closed:: *)
@@ -1479,6 +1512,22 @@ fticks=Last[Ticks/.AbsoluteOptions[fgraph,Ticks]]/._RGBColor|_GrayLevel|_Hue:>Co
 gticks=(MapAt[Function[r,Rescale[r,grange,frange]],#,{1}]&/@Last[Ticks/.AbsoluteOptions[ggraph,Ticks]])/._RGBColor|_GrayLevel|_Hue->ColorData[1][2];
 Show[fgraph,ggraph/.Graphics[graph_,s___]:>Graphics[GeometricTransformation[graph,RescalingTransform[{{0,1},grange},{{0,1},frange}]],s],Axes->False,Frame->True,FrameStyle->{ColorData[1]/@{1,2},{Automatic,Automatic}},FrameTicks->{{fticks,gticks},{Automatic,Automatic}}]];
 
+TwoAxisDateListPlot[f_List, g_List, opts : OptionsPattern[]] := 
+ Module[{p1, p2, fm, fM, gm, gM, old, new, newg},
+  p1 = DateListPlot[f, Axes -> True, Frame -> False, 
+    PlotRange -> Automatic];
+  p2 = DateListPlot[g, Axes -> True, Frame -> False, 
+    PlotRange -> Automatic];
+  {fm, fM} = AbsoluteOptions[p1, PlotRange][[1, 2, 2]];
+  {gm, gM} = AbsoluteOptions[p2, PlotRange][[1, 2, 2]];
+  old = AbsoluteOptions[p2, Ticks][[1, 2, 2]];
+  new = Flatten[{Rescale[First[#1], {gm, gM}, {fm, fM}], Rest[#1]}, 
+      1] & /@ old;
+  newg = {#[[1]], Rescale[#[[2]], {gm, gM}, {fm, fM}]} & /@ g;
+  DateListPlot[{f, newg}, Axes -> False, Frame -> True, 
+   FrameTicks -> {{Automatic, new}, {Automatic, Automatic}}, 
+   PlotRange -> {fm, fM}, opts]];
+
 
 (* ::Text:: *)
 (*(under construction)*)
@@ -1531,6 +1580,9 @@ HighlightDataPlot[highlightData_Dataset,plotType_,opt:OptionsPattern[]]:=Highlig
 HighlightDataPlot[plotType_,opt:OptionsPattern[]][highlightData_]:=HighlightDataPlot[highlightData,plotType,opt];
 
 
+AddTooltip[list:{{_,_}..}]:=Map[Tooltip[#,If[Head@#[[1]]===DateObject,DateString[#[[1]],"ISODateTime"]//StringDelete["T00:00:00"],ToString@#[[1]]]<>": "<>ToString@#[[2]]]&,list];
+
+
 (* ::Subsection::Closed:: *)
 (*Speedy post-processing of plots*)
 
@@ -1565,11 +1617,6 @@ Show[plot,Plot[fit,{x,Min[data[[All,1]]],Max[data[[All,1]]]},PlotStyle->Red],Epi
 ];
 
 
-FigureAlbum[figures_List]:=With[{lables=Table[First@Values@AbsoluteOptions[figures[[j]],PlotLabel]/.None->j,{j,Length@figures}]},
-	Manipulate[AssociationThread[lables->figures][i],{i,lables}]
-];
-
-
 (* ::Subsection::Closed:: *)
 (*PyPlots*)
 
@@ -1589,6 +1636,118 @@ ExternalEvaluate[session,"data.plot(kind='"<>plotType<>"',x='"<>cols[[1]]<>"',y=
 plt.show()"]
 
 ]
+
+
+(* ::Subsection::Closed:: *)
+(*Interactive exploration*)
+
+
+FigureAlbum[figures_List]:=With[{lables=Table[First@Values@AbsoluteOptions[figures[[j]],PlotLabel]/.None->j,{j,Length@figures}]},
+	Manipulate[AssociationThread[lables->figures][i],{i,lables}]
+];
+
+
+ExploreGraphics[graph_Graphics,opts:OptionsPattern[]]:=With[{gr=First[graph],opt=DeleteCases[Options[graph],PlotRange->_|AspectRatio->_|AxesOrigin->_],plr=PlotRange/. AbsoluteOptions[graph,PlotRange],ar=AspectRatio/. AbsoluteOptions[graph,AspectRatio],ao=AbsoluteOptions[AxesOrigin],rectangle={Dashing[Small],Line[{#1,{First[#2],Last[#1]},#2,{First[#1],Last[#2]},#1}]}&,optAxesRedraw=OptionValue[OptAxesRedraw]},
+DynamicModule[
+{dragging=False,first,second,rx1,rx2,ry1,ry2,range=plr},{{rx1,rx2},{ry1,ry2}}=plr;
+Panel@EventHandler[Dynamic@Graphics[If[dragging,{gr,rectangle[first,second]},gr],PlotRange->Dynamic@range,AspectRatio->ar,AxesOrigin->If[optAxesRedraw,Dynamic@Mean[range\[Transpose]],ao],Sequence@@opt],{{"MouseDown",1}:>(first=MousePosition["Graphics"]),{"MouseDragged",1}:>(dragging=True;
+second=MousePosition["Graphics"]),{"MouseUp",1}:>If[dragging,dragging=False;
+range={{rx1,rx2},{ry1,ry2}}=Transpose@{first,second},range={{rx1,rx2},{ry1,ry2}}=plr],{"MouseDown",2}:>(first={sx1,sy1}=MousePosition["Graphics"]),{"MouseDragged",2}:>(second={sx2,sy2}=MousePosition["Graphics"];
+rx1=rx1-(sx2-sx1);
+rx2=rx2-(sx2-sx1);
+ry1=ry1-(sy2-sy1);
+ry2=ry2-(sy2-sy1);
+range={{rx1,rx2},{ry1,ry2}})}]]];
+
+ExploreGraphics[graph_,opts:OptionsPattern[]]:=ExploreGraphics[FirstCase[graph, _Graphics],opts];
+
+
+(* ::Text:: *)
+(*Comprehensive plot explorer by Istv\[AAcute]n Zachar. *)
+
+
+GetPlotRange[_[gr:(_Graphics|_Graphics3D|_Graph|_GeoGraphics),___],pad_]:=GetPlotRange[gr,pad];(*Handle Legended[\[Ellipsis]] and similar.*)GetPlotRange[gr_GeoGraphics,False]:=(PlotRange/. Quiet@AbsoluteOptions@gr);(*TODO:does not handle PlotRangePadding.*)GetPlotRange[gr_Graph,pad_:False]:=Charting`get2DPlotRange[gr,pad];
+GetPlotRange[gr:(_Graphics|_Graphics3D),pad_:False]:=Module[{r=PlotRange/. Options@gr},If[MatrixQ[r,NumericQ],(*TODO:does not handle PlotRangePadding*)r,Last@Last@Reap@Rasterize[Show[gr,If[pad===False,PlotRangePadding->None,{}],Axes->True,Frame->False,Ticks->((Sow@{##};Automatic)&),DisplayFunction->Identity,ImageSize->0],ImageResolution->1]]];
+
+
+(*Joins and filters options,keeping the righmost if there are multiple instances of the same option.*)
+filter[opts_List,head_]:=Reverse@DeleteDuplicatesBy[Reverse@FilterRules[Flatten@opts,First/@Options@head],First];
+
+
+(*Find and use SETools of Szabolcs& Halirutan*)
+$SEToolsExist=FileExistsQ@FileNameJoin@{$UserBaseDirectory,"Applications","SETools","Java","SETools.jar"};
+
+(*If SETools exist,initiate JLink and include some functions*)
+If[$SEToolsExist,Needs@"JLink`";
+JLink`InstallJava[];
+copyToClipboard[text_]:=Module[{nb},nb=NotebookCreate[Visible->False];
+NotebookWrite[nb,Cell[text,"Input"]];
+SelectionMove[nb,All,Notebook];
+FrontEndTokenExecute[nb,"Copy"];
+NotebookClose@nb;];
+uploadButtonAction[img_]:=uploadButtonAction[img,"![Mathematica graphics](",")"];
+uploadButtonAction[img_,wrapStart_String,wrapEnd_String]:=Module[{url},Check[url=stackImage@img,Return[]];
+copyToClipboard@(wrapStart<>url<>wrapEnd);];
+stackImage::httperr="Server returned respose code: `1`";
+stackImage::err="Server returner error: `1`";
+stackImage::parseErr="Could not parse the answer of the server.";
+stackImage[g_]:=Module[{url,client,method,data,partSource,part,entity,code,response,error,result,parseXMLOutput},parseXMLOutput[str_String]:=Block[{xml=ImportString[str,{"HTML","XMLObject"}],result},result=Cases[xml,XMLElement["script",_,res_]:>StringTrim[res],Infinity]/. {{s_String}}:>s;
+If[result=!={}&&StringMatchQ[result,"window.parent"~~__],Flatten@StringCases[result,"window.parent."~~func__~~"("~~arg__~~");":>{StringMatchQ[func,"closeDialog"],StringTrim[arg,"\""]}],$Failed]];
+parseXMLOutput[___]:=$Failed;
+data=ExportString[g,"PNG"];
+JLink`JavaBlock[JLink`LoadJavaClass["de.halirutan.se.tools.SEUploader",StaticsVisible->True];
+response=Check[SEUploader`sendImage@ToCharacterCode@data,Return@$Failed]];
+If[response===$Failed,Return@$Failed];
+result=parseXMLOutput@response;
+If[result=!=$Failed,If[TrueQ@First@result,Last@result,Message[stackImage::err,Last@result];$Failed],Message[stackImage::parseErr];$Failed]];];
+
+
+GraphicsButton::usage="GraphicsButton[lbl, gr] represent a button that is labeled with lbl and offers functionality for the static graphics object gr. GraphicsButton[gr] uses a tiny version of gr as label.";
+MenuItems::usage="MenuItems is an option for GraphicsButton that specifies additional label \[RuleDelayed] command pairs as a list to be included at the top of the action menu of GraphicsButton.";
+Options[GraphicsButton]=DeleteDuplicatesBy[Flatten@{MenuItems->{},RasterSize->Automatic,ColorSpace->Automatic,ImageResolution->300,Options@ActionMenu},First];
+GraphicsButton[expr_,opts:OptionsPattern[]]:=GraphicsButton[Pane[expr,ImageSize->Small,ImageSizeAction->"ShrinkToFit"],expr,opts];
+GraphicsButton[lbl_,expr_,opts:OptionsPattern[]]:=Module[{head,save,items=OptionValue@MenuItems,rasterizeOpts,dir=$UserDocumentsDirectory,file=""},rasterizeOpts=filter[{Options@GraphicsButton,opts},Options@Rasterize];
+save[format_]:=(file=SystemDialogInput["FileSave",FileNameJoin@{dir,"."<>ToLowerCase@format}];
+If[file=!=$Failed&&file=!=$Canceled,dir=DirectoryName@file;
+Quiet@Export[file,If[format==="NB",expr,Rasterize[expr,"Image",rasterizeOpts]],format]]);
+head=Head@Unevaluated@expr;
+ActionMenu[lbl,Flatten@{If[items=!={},items,Nothing],"Copy expression":>CopyToClipboard@expr,"Copy image":>CopyToClipboard@Rasterize@expr,"Copy high-res image":>CopyToClipboard@Rasterize[expr,"Image",rasterizeOpts],"Paste expression":>Paste@expr,"Paste image":>Paste@Rasterize@expr,"Paste high-res image":>Paste@Rasterize[expr,"Image",rasterizeOpts],Delimiter,"Save as notebook\[Ellipsis]":>save@"NB","Save as JPEG\[Ellipsis]":>save@"JPEG","Save as TIFF\[Ellipsis]":>save@"TIFF","Save as BMP\[Ellipsis]":>save@"BMP",Delimiter,Style["Upload image to StackExchange",If[$SEToolsExist,Black,Gray]]:>If[$SEToolsExist,uploadButtonAction@Rasterize@expr],"Open image in external application":>Module[{f=Export[FileNameJoin@{$TemporaryDirectory,"temp_img.tiff"},Rasterize@expr,"TIFF"]},If[StringQ@f&&FileExistsQ@f,SystemOpen@f]]},filter[{Options@GraphicsButton,opts,{Method->"Queued"}},Options@ActionMenu]]];
+
+
+Attributes[PlotExplorer]={HoldFirst};
+Options[PlotExplorer]={AppearanceFunction->(Mouseover[Invisible@#,#]&@Framed[#,Background->GrayLevel[.5,.5],RoundingRadius->5,FrameStyle->None,Alignment->{Center,Center},BaseStyle->{FontFamily->"Helvetica"}]&),MenuPosition->Scaled@{1,1}};
+PlotExplorer[expr_,rangeArg_:Automatic,sizeArg_:Automatic,ratioArg_:Automatic,opts:OptionsPattern[]]:=Module[{plot=expr,held=Hold@expr,head,holdQ=True,legQ=False,appearance,position,$1Dplots=Plot|LogPlot|LogLinearPlot|LogLogPlot,$2Dplots=DensityPlot|ContourPlot|RegionPlot|StreamPlot|StreamDensityPlot|VectorPlot|VectorDensityPlot|LineIntegralConvolutionPlot|GeoGraphics},head=held[[1,0]];
+If[head===Symbol,holdQ=False;head=Head@expr];
+If[head===Legended,legQ=True;
+If[holdQ,held=held/. Legended[x_,___]:>x;
+head=held[[1,0]],head=Head@First@expr]];
+holdQ=holdQ&&MatchQ[head,$1Dplots|$2Dplots];
+If[!holdQ,legQ=Head@expr===Legended;
+head=If[legQ,Head@First@expr,Head@expr]];
+If[Not@MatchQ[head,$1Dplots|$2Dplots|Graphics|Graph],expr,DynamicModule[{dyn,gr,leg,replot,rescale,new,mid,len,min=0.1,f={1,1},set,d,epilog,over=False,defRange,range,size,ratio,pt1,pt1sc=None,pt2=None,pt2sc=None,rect,button},{gr,leg}=If[legQ,List@@plot,{plot,None}];
+size=If[sizeArg===Automatic,Rasterize[gr,"RasterSize"],Setting@sizeArg];
+defRange=If[rangeArg===Automatic,GetPlotRange[gr,False],Setting@rangeArg];
+ratio=If[ratioArg===Automatic,Divide@@Reverse@size,Setting@ratioArg];
+epilog=Epilog/. Quiet@AbsoluteOptions@plot;
+gr=plot;
+(*When r1 or r2 is e.g.{1,1} (scale region has zero width),EuclideanDistance by defult returns Infinity which is fine.*)d[p1_,p2_,{r1_,r2_}]:=Quiet@N@EuclideanDistance[Rescale[p1,r1],Rescale[p2,r2]];
+set[r_]:=(range=new=r;mid=Mean/@range;
+len=Abs[Subtract@@@range];pt1=None;rect={};);
+set@defRange;
+(*Replace plot range or insert if nonexistent*)replot[h_,hold_,r_]:=Module[{temp},ReleaseHold@Switch[h,$1Dplots,temp=ReplacePart[hold,{{1,2,2}->r[[1,1]],{1,2,3}->r[[1,2]]}];
+If[MemberQ[temp,PlotRange,Infinity],temp/. {_[PlotRange,_]->(PlotRange->r)},Insert[temp,PlotRange->r,{1,-1}]],$2Dplots,temp=ReplacePart[hold,{{1,2,2}->r[[1,1]],{1,2,3}->r[[1,2]],{1,3,2}->r[[2,1]],{1,3,3}->r[[2,2]]}];
+If[MemberQ[temp,PlotRange,Infinity],temp/. {_[PlotRange,_]->(PlotRange->r)},Insert[temp,PlotRange->r,{1,-1}]],_,hold]];
+rescale[h_,hold_,sc_]:=ReleaseHold@Switch[h,$1Dplots|$2Dplots,If[MemberQ[hold,ScalingFunctions,Infinity],hold/. {_[ScalingFunctions,_]->(ScalingFunctions->sc)},Insert[hold,ScalingFunctions->sc,{1,-1}]],_,hold];
+appearance=OptionValue@AppearanceFunction/. {Automatic:>(AppearanceFunction/. Options@PlotExplorer)};
+position=OptionValue@MenuPosition/. Automatic->Scaled@{1,1};
+(*Print@Column@{rangeArg,sizeArg,ratioArg,appearance,position};*)button=If[appearance===None,{},Inset[appearance@Dynamic@GraphicsButton["Menu",dyn,Appearance->If[appearance===Identity,Automatic,None],MenuItems->Flatten@{{Row@{"Copy PlotRange \[Rule] ",TextForm/@range}:>(CopyToClipboard[PlotRange->range]),Row@{"Copy ImageSize \[Rule] ",InputForm@size}:>(CopyToClipboard[ImageSize->size]),Row@{"Copy AspectRatio \[Rule] ",InputForm@ratio}:>(CopyToClipboard[AspectRatio->ratio])},If[MatchQ[head,$1Dplots|$2Dplots],{Delimiter,"Replot at current PlotRange":>(gr=replot[head,held,range];),"Linear":>{gr=rescale[head,held,{Identity,Identity}];},"Log":>{gr=rescale[head,held,{Identity,"Log"}]},"LogLinear":>{gr=rescale[head,held,{"Log",Identity}]},"LogLog":>{gr=rescale[head,held,{"Log","Log"}]}},{}],Delimiter}],position,Scaled@{1,1},Background->None]];
+Deploy@Pane[EventHandler[Dynamic[MouseAppearance[Show[(*`dyn` is kept as the original expression with only updating `range`,`size` and `ratio`.*)dyn=Show[gr,PlotRange->Dynamic@range,ImageSize->Dynamic@size,AspectRatio->Dynamic@ratio],Epilog->{epilog,button,{FaceForm@{Blue,Opacity@.1},EdgeForm@{Thin,Dotted,Opacity@.5},Dynamic@rect},{Dynamic@If[over&&CurrentValue@"AltKey"&&pt2=!=None,{Antialiasing->False,AbsoluteThickness@.25,GrayLevel[.5,.5],Dashing@{},InfiniteLine@{pt2,pt2+{1,0}},InfiniteLine@{pt2,pt2+{0,1}}},{}]}}],Which[over&&CurrentValue@"AltKey"&&pt2=!=None,Graphics@{Text[pt2,pt2,-{1.1,1},Background->GrayLevel[1,.7]]},CurrentValue@"ShiftKey","LinkHand",CurrentValue@"ControlKey","ZoomView",True,Automatic]],TrackedSymbols:>{gr}],{"MouseEntered":>(over=True),"MouseExited":>(over=False),"MouseMoved":>(pt2=MousePosition@"Graphics";),"MouseClicked":>(If[CurrentValue@"MouseClickCount"==2,set@defRange];),"MouseDown":>(pt1=MousePosition@"Graphics";
+pt1sc=MousePosition@"GraphicsScaled";),"MouseUp":>(If[CurrentValue@"ControlKey"&&d[pt1,pt2,new]>min,range=Transpose@Sort@{pt1,pt2};];set@range;),"MouseDragged":>(pt2=MousePosition@"Graphics";
+pt2sc=MousePosition@"GraphicsScaled";
+Which[CurrentValue@"ShiftKey",pt2=MapThread[Rescale,{MousePosition@"GraphicsScaled",{{0,1},{0,1}},new}]-pt1;
+range=new-pt2;,(*Panning*)CurrentValue@"ControlKey",rect=If[pt1===None||pt2===None,{},Rectangle[pt1,pt2]];,(*Zooming rectangle*)True,f=10^(pt1sc-pt2sc);
+range=(mid+(1-f) (pt1-mid))+f/2 {-len,len}\[Transpose](*Zofom on `pt1`*)])},PassEventsDown->True,PassEventsUp->True],Dynamic[size,(size=#;
+If[CurrentValue@"ControlKey",ratio=Divide@@Reverse@#])&],AppearanceElements->"ResizeArea",ImageMargins->0,FrameMargins->0]]]];
 
 
 (* ::Chapter:: *)
