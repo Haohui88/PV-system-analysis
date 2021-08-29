@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*General functions*)
 
 
@@ -100,7 +100,10 @@ dateFormat is allowed format for DateList, such as list of elements to be extrac
 Note: timezone default is set to machine local timezone (not dynamic). If timestamp is already in DateObject format, it will be converted to the specified timezone. ";
 
 
-ToTemporalData::usage = "Quick conversion to a temporal data object.";
+ToTemporalData::usage = "Quick conversion to a temporal data object. 
+Assumes data is regular shaped table, all have DateObject timestamps (if not, automatic conversion to DateObject will be done with system default methods, so better control the conversion beforehand). 
+Type of input data can be Dataset, or tables with pure timestamp-value(s) pairs, or tables with title rows. 
+Option such as Timezone can be specified (note that this only changed the form appearance but not the true time of the DateObject). ";
 
 FromTemporalData::usage = "Quick conversion from a temporal data object to extract paths.";
 
@@ -117,7 +120,7 @@ DetectResolution::noRegSpace = "Input series not regularly spaced (significant n
 (*Data import and manipulation*)
 
 
-MultiImport::usage = "Import multiple files at the same time.";
+MultiImport::usage = "MultiImport[list_of_files] imports multiple files at the same time. ";
 
 Glimpse::usage = "Glimpse[data,rowsToShow:10] takes a quick look at data dimension and first few rows. Glimpse[rowToShow] is the operator form. ";
 
@@ -232,9 +235,10 @@ TwoAxisListPlot::usage = "Two axis plotting: TwoAxisListPlot[{f,g}].";
 
 TwoAxisListLinePlot::usage = "Two axis plotting: TwoAxisListLinePlot[{f,g}].";
 
-HighlightData::usage = "HighlightData[data_,logic_,positions_:\"default\",color_:Red] labels the selected columns (specified by positions) in a certain color.";
+HighlightData::usage = "HighlightData[data_,logic_,positions_:\"default\",color_:Red] labels the selected columns (specified by positions) in a certain color. \
+When data input is Dataset, it gets reduced first, so cannot accept key name as label. ";
 
-HighlightDataPlot::usage = "HighlightDataPlot[highlightData,plotType,opt] takes in highlighted data and plot as plotType.";
+HighlightDataPlot::usage = "HighlightDataPlot[highlightData,plotType,opt] takes in highlighted data and plot as plotType. Default plotType is ListPlot. Only works with ploting 2D data so only two columns should be chosen. ";
 
 AddTooltip::usage = "Add tooltip label of format x:y to each row of a table with 2 columns. "
 
@@ -246,7 +250,9 @@ AddTrendline::usage = "Add a line of best linear fit to a plot.";
 
 Options[AddTrendline]={"ShowEquation"->True,"PlaceEquation"->Scaled[{0.6,0.8}]};
 
-FigureAlbum::usage = "Inspect a set of plots.";
+FigureAlbum::usage = "Inspect a list of plots with PlotLabel or position as label.";
+
+AssociationExplore::usage = "AssociationExplore[assoc] inspects each element of the association.";
 
 PyPlot::usage = "PyPlot[session_,var_Dataset,plotType_:\"line\"] does x-y plot using matplotlib.";
 
@@ -272,7 +278,7 @@ AppearanceFunction::usage="AppearanceFunction is an option for PlotExplorer that
 MenuPosition::usage="MenuPosition is an option for PlotExplorer that specifies the position of the (upper right corner of the) menu button within the graphics object.";
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Solar related*)
 
 
@@ -333,6 +339,9 @@ VoltageRatio2::usage = "VoltageRatio2 calculates the ratio of actual voltage to 
 
 CurrentRatio::usage = "CurrentRatio[current,Isc,Gpoa,Tmod (in K),tempCoeff:0.0005] calculates the ratio of actual current to expected Isc under a certain operating condition with temperature correction.
 CurrentRatio[current,Isc,Gpoa] calculates the ratio without temperature correction. ";
+
+YoYRate::usage = "YoYRate[data,window_:3] calculates degradation rate using Year-on-Year method, and returns {rate, std dev of differences, median deviation of differences}.
+Default to use 3 day window to obtain average before comparing across years. ";
 
 Dispersion::usage = "Dispersion[list] gives the standard deviation of the list normalized by its rough magnitude (mean of |list|). ";
 
@@ -422,7 +431,9 @@ Photocurrent[spec_,{wMin_,wMax_}] calculates it for a given range of wavelength.
 
 
 (* ::Section::Closed:: *)
-(*End of initialization*)
+(*-------------------------------   End of initialization  ------------------------------------------*)
+(*================================================================*)
+(*================================================================*)
 
 
 Begin["`Private`"];
@@ -843,7 +854,7 @@ Glimpse[data_Dataset]:=Glimpse[FromDataset[data,True]];
 (*The basic method is the convert these datasets into associations and use Mathematica built-in function JoinAcross to perform data merging. *)
 (*The option KeyPosition indicates the column at which this common key resides (can be a number of column name). *)
 (*The option JoinMethod specifies the joining method which will be used in function JoinAcross. *)
-(*The input "data" needs to be a table of datasets: {dataset1, dataset2, ...}. *)
+(*The input "data" needs to be a table of regular arrays or datasets: {dataset1, dataset2, ...}. *)
 (*Format of individual datasets must be tables, or flat (not hierarchical) and (only) column indexed Dataset objects. *)
 (*It is not advisable to use DateObject as the timestamp as its exact form may not be the same while appearing to be the same timestamp. *)
 
@@ -880,7 +891,15 @@ If[MatchQ[data,{__Dataset}], (*if input data is Dataset objects, reduce to assoc
 ];
 
 (* returned output may be unsorted, can apply sort function afterwards*)
-Return[joinedSet//Dataset]
+Return@
+If[MatchQ[data,{__Dataset}],
+	joinedSet//Dataset,
+	If[OptionValue@Header,
+		Prepend[Values/@joinedSet,Keys@First@joinedSet]
+	,
+		Values/@joinedSet]
+];
+
 ];
 
 
@@ -1581,10 +1600,13 @@ Return@output;
 ];
 
 
-HighlightDataPlot[highlightData_List,plotType_,opt:OptionsPattern[]]:=plotType[highlightData/.{{Style[x_,_],Style[y_,z_]}:>Style[{x,y},z],{x_,Style[y_,z_]}:>Style[{x,y},z]},opt];
-HighlightDataPlot[highlightData_Dataset,plotType_,opt:OptionsPattern[]]:=HighlightDataPlot[highlightData//FromDataset,plotType,opt];
+HighlightData[data_Dataset,logic_,Shortest[positions_:"default"],color_:Red]:=With[{d=data//FromDataset,cols=data//DatasetColumns},ToDataset[HighlightData[d,logic,positions,color],cols]];
 
-HighlightDataPlot[plotType_,opt:OptionsPattern[]][highlightData_]:=HighlightDataPlot[highlightData,plotType,opt];
+
+HighlightDataPlot[highlightData_List,plotType_:ListPlot,opt:OptionsPattern[]]:=plotType[highlightData/.{{Style[x_,_],Style[y_,z_]}:>Style[{x,y},z],{x_,Style[y_,z_]}:>Style[{x,y},z]},opt];
+HighlightDataPlot[highlightData_Dataset,plotType_:ListPlot,opt:OptionsPattern[]]:=HighlightDataPlot[highlightData//FromDataset,plotType,opt];
+
+HighlightDataPlot[plotType_:ListPlot,opt:OptionsPattern[]][highlightData_]:=HighlightDataPlot[highlightData,plotType,opt];
 
 
 AddTooltip[list:{{_,_}..}]:=Map[Tooltip[#,If[Head@#[[1]]===DateObject,DateString[#[[1]],"ISODateTime"]//StringDelete["T00:00:00"],ToString@#[[1]]]<>": "<>ToString@#[[2]]]&,list];
@@ -2146,6 +2168,14 @@ FigureAlbum[figures_List]:=With[{lables=Table[First@Values@AbsoluteOptions[figur
 ];
 
 
+AssociationExplore[assoc_Association]:=With[{keys=Keys@assoc},
+	Manipulate[assoc[i],
+		{i,keys},
+		Row@{Button["previous bin",i=keys[[With[{p=Position[keys,i][[1,1]]},Max[p-1,1]]]]],Button["next bin",i=keys[[Min[Position[keys,i][[1,1]]+1,Length@keys]]]]}
+	]
+];
+
+
 ExploreGraphics[graph_Graphics,opts:OptionsPattern[]]:=With[{gr=First[graph],opt=DeleteCases[Options[graph],PlotRange->_|AspectRatio->_|AxesOrigin->_],plr=PlotRange/. AbsoluteOptions[graph,PlotRange],ar=AspectRatio/. AbsoluteOptions[graph,AspectRatio],ao=AbsoluteOptions[AxesOrigin],rectangle={Dashing[Small],Line[{#1,{First[#2],Last[#1]},#2,{First[#1],Last[#2]},#1}]}&,optAxesRedraw=OptionValue[OptAxesRedraw]},
 DynamicModule[
 {dragging=False,first,second,rx1,rx2,ry1,ry2,range=plr},{{rx1,rx2},{ry1,ry2}}=plr;
@@ -2532,6 +2562,44 @@ CurrentRatio[current_,Isc_,Gpoa_?Positive]:=current/(Gpoa/1000*Isc); (* simplifi
 CurrentRatio[current_,Isc_,Gpoa_?NonPositive]:=0;
 
 SetAttributes[CurrentRatio,Listable];
+
+
+(* ::Subsection::Closed:: *)
+(*Degradation*)
+
+
+(* ::Text:: *)
+(*Assumes data is regular shaped table, all have DateObject timestamps (if not, automatic conversion to DateObject will be done with system default methods, so better control the conversion beforehand). *)
+(*Type of input data can be Dataset, or tables with pure timestamp-value(s) pairs, or tables with title rows. *)
+
+
+YoYRate[data:{{_,_}..},window_:3]:=Module[{ts,mean,tsAvg,difference},
+ts=data//ToTemporalData;
+
+mean=Mean@Cases[#,_?NumericQ]/._Mean->Null&;
+tsAvg=TimeSeriesAggregate[ts,{{window,"Day"},Center},mean]["DatePath"];
+
+difference=Join[
+	tsAvg,
+	Replace[Cases[{##2},_Real,1,1]&@@@
+		(* for window size of 1 to 7, a timestamp will always be within +- 1 day of the target +365days date 
+		( Mod(365, window) or Mod(365+1 (doesn't mean leap year here), window) is always <= 1 ) *)
+		MergeData[{List/@(tsAvg[[All,1]]+Quantity[365,"Days"]),tsAvg,{#1-Quantity[1,"Days"],#2}&@@@tsAvg,{#1+Quantity[1,"Days"],#2}&@@@tsAvg},JoinMethod->"Left"]
+		,{}->{Null}
+		,2
+	]
+,2];
+Sow@difference;
+
+difference=-Subtract@@@Cases[difference[[All,2;;3]],{__?NumericQ}];
+
+(* median, std dev, median deviation *)
+Return@{difference//Median,difference//StandardDeviation,difference//MedianDeviation}
+
+];
+
+
+YoYRate[data_Dataset,window_:3]:=YoYRate[data//FromDataset,window];
 
 
 (* ::Subsection::Closed:: *)
