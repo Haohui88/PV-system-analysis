@@ -120,7 +120,8 @@ DetectResolution::noRegSpace = "Input series not regularly spaced (significant n
 (*Data import and manipulation*)
 
 
-MultiImport::usage = "MultiImport[list_of_files] imports multiple files at the same time. ";
+MultiImport::usage = "MultiImport[list_of_files] imports multiple files at the same time. 
+MultiImport[folder,pattern:\"*\"] imports multiple files in a folder with a certain pattern. ";
 
 Glimpse::usage = "Glimpse[data,rowsToShow:10] takes a quick look at data dimension and first few rows. Glimpse[rowToShow] is the operator form. ";
 
@@ -282,7 +283,7 @@ MenuPosition::usage="MenuPosition is an option for PlotExplorer that specifies t
 (*Solar related*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Solar geometry and meteorological*)
 
 
@@ -308,8 +309,10 @@ AoiProjection::usage = "AoiProjection[tilt,orientation,sunZenith,sunAzimuth] ret
 
 AngleOfIncidence::usage = "AngleOfIncidence[tilt,orientation,sunZenith,sunAzimuth] returns the incidence angle between sunlight and module plane.";
 
-StablePeriodDetect::usage = "StablePeriodDetect[data,irrColName(optional),threshold:20,length:5] detects stable periods and append a column with labels 0 or 1. \
-Input data should include at least two columns: {Timestamp,irradiance}. ";
+StablePeriodDetect::usage = "StablePeriodDetect[data,irrColName:Automatic,threshold:20,length:5,maxRamp:20] detects stable periods and append a column with labels 0 or 1. \
+Input data should include at least two columns: {Timestamp,irradiance}. 
+Tunable parameters: threshold of second order difference, minimum length of consecutive stable points, max ramp rate (first order difference). \
+Default parameters are good for 5 min time resolution. ";
 StablePeriodDetect::noIrr = "Error: irradiance column not properly defined.";
 StablePeriodDetect::multiIrr = "Multiple irradiance columns may be present, the first one will be selected. ";
 StablePeriodDetect::tablein = "Table input, assumes first two columns to be time and irradiance. ";
@@ -816,19 +819,21 @@ DetectResolution[list_Dataset,takeSize_:200]:=DetectResolution[list//FromDataset
 (*Import multiple files*)
 
 
-MultiImport[files_]:=Module[{output},
+MultiImport[files_List]:=Module[{output},
 output=Import[#]&/@files;
 output=Flatten[output,1];
 
 Return[output]
 ];
 
-MultiImport[files_,format_]:=Module[{output},
+MultiImport[files_List,format_]:=Module[{output},
 output=Import[#,format]&/@files;
 output=Flatten[output,1];
 
 Return[output]
 ];
+
+MultiImport[folder_String,pattern_:"*"]:=MultiImport@FileNames[pattern,{folder}];
 
 
 (* ::Subsection::Closed:: *)
@@ -2411,13 +2416,14 @@ AngleOfIncidence[tilt_,orientation_,sunZenith_,sunAzimuth_]:=ArcCos@AoiProjectio
 (*Mainly for detecting irradiance stability but can be used for other signals too. *)
 
 
-StablePeriodDetect[data_Dataset,Shortest[irrColName_:Automatic],threshold_:20,length_:5]:=Module[{cols,timeColName,deltas,irrCol,sod,stablePeriod,nonStablePeriod},
+StablePeriodDetect[data_Dataset,irrColName_:Automatic,threshold_:20,length_:5,maxRamp_:20]:=Module[{cols,timeColName,deltas,irrCol,sod,stablePeriod,nonStablePeriod},
 
 cols=data//DatasetColumns;
 timeColName=SelectFirst[cols,StringContainsQ["timestamp"|"date"|"time"|"Timestamp"|"Date"|"Time"]];
 Echo[timeColName,"Detected timestamp column: "];
 
 deltas=DetectResolution[data[[All,{timeColName}]]];
+Echo[deltas,"Detected timestamp resolution: "];
 If[irrColName===Automatic,
 	irrCol=Select[cols,StringMatchQ[#,"G"] || StringContainsQ[#,"GHI"|"radiance"|"POA"|"ghi"|"poa"|"irr"|"Irr"] && Not@StringMatchQ[#,__~~"_D"|"_D_D"]&];
 	Echo[irrCol,"Detected irradiance columns: "];
@@ -2444,16 +2450,19 @@ If[MemberQ[cols,irrCol<>"_D_D"],
 			CalcFirstOrderDiff[data[All,{timeColName,irrCol}],{irrCol,timeColName}]//Select[#[timeColName<>"_D"]==deltas&]
 		,{irrCol<>"_D"}];
 	
-	(* keep only Timestamp, G, G_D_D *)
-	sod=sod[All,{timeColName,irrCol,irrCol<>"_D_D"}]//FromDataset;
+	(* keep only Timestamp, G, G_D_D, G_D *)
+	sod=sod[All,{timeColName,irrCol,irrCol<>"_D_D",irrCol<>"_D"}]//FromDataset;
 ];
 
 (* select stable period if second order difference is less than threshold for consecutive times > length *)
-stablePeriod=Flatten[Select[Split[sod,Abs@#2[[-1]]<threshold&],Length@#>length&],1]; 
-(*If[stablePeriod=!={},stablePeriod=stablePeriod[[All,;;3]];];*)
+stablePeriod=Flatten[
+					Select[Split[sod,Abs@#2[[3]]<threshold && Abs@#2[[4]]<maxRamp&],Length@#>length&]
+					(*Select[Select[Split[sod,Abs@#2[[3]]<threshold && Abs@#2[[4]]<maxRamp&],Length@#>length&],Abs@*Subtract@@MinMax@#[[All,-1]]<threshold&]*)
+					,1]; 
+If[stablePeriod=!={},stablePeriod=stablePeriod[[All,;;3]];];
 
 (* append 0 as label to non stable period *)
-nonStablePeriod=Complement[sod,stablePeriod]//AppendColumn[0];
+nonStablePeriod=Complement[sod[[All,;;3]],stablePeriod]//AppendColumn[0];
 
 Return@
 SortBy[First]@
