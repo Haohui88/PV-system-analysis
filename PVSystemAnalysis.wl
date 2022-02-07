@@ -71,7 +71,7 @@ RenameColumn::usage = "RenameColumn[replaceRules][dataset] replaces column names
 
 AppendColumn::usage = "AppendColumn[array_List, x] appends x to array as a column. 
 AppendColumn[array_Dataset, x_,colName:\"new_column\"] appends column to dataset with a column name. 
-AppendColumn[x] and AppendColumn[x, colName(needs to be string)] are operator forms to be applied to array/Dataset and Dataset(only) respectively. ";
+AppendColumn[x] and AppendColumn[colName->x] are operator forms to be applied to array and Dataset respectively. ";
 
 CalcFirstOrderDiff::usage = "CalcFirstOrderDiff[dataset,col:{__String}:All,inPercentage:{__String}:None] calculates first order differences for selected columns in col and merge with original dataset. \
 inPercentage specifies columns for which FOD is calculated in percentage. FOD is always associated with the end point of each (time) step (each row is one step). ";
@@ -120,8 +120,11 @@ DetectResolution::noRegSpace = "Input series not regularly spaced (significant n
 (*Data import and manipulation*)
 
 
-MultiImport::usage = "MultiImport[list_of_files] imports multiple files at the same time. 
-MultiImport[folder,pattern:\"*\"] imports multiple files in a folder with a certain pattern. ";
+MultiImport::usage = "MultiImport[list_of_files,format(optional)] imports multiple files at the same time. 
+MultiImport[folder,pattern:\"*\"] imports multiple files in a folder with a certain pattern. 
+Default options are {\"CleanHeader\"->True,\"ToDataset\"->True}";
+
+Options[MultiImport]={"CleanHeader"->True,"ToDataset"->True};
 
 Glimpse::usage = "Glimpse[data,rowsToShow:10] takes a quick look at data dimension and first few rows. Glimpse[rowToShow] is the operator form. ";
 
@@ -283,7 +286,7 @@ MenuPosition::usage="MenuPosition is an option for PlotExplorer that specifies t
 (*Solar related*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Solar geometry and meteorological*)
 
 
@@ -344,7 +347,8 @@ CurrentRatio::usage = "CurrentRatio[current,Isc,Gpoa,Tmod (in K),tempCoeff:0.000
 CurrentRatio[current,Isc,Gpoa] calculates the ratio without temperature correction. ";
 
 YoYRate::usage = "YoYRate[data,window_:3] calculates degradation rate using Year-on-Year method, and returns {rate, std dev of differences, median deviation of differences}.
-Default to use 3 day window to obtain average before comparing across years. ";
+Default to use 3 day window to obtain average before comparing across years. Input data will be converted to time series object, \
+can be Dataset, or tables with pure timestamp-value(s) pairs, or tables with title rows. ";
 
 Dispersion::usage = "Dispersion[list] gives the standard deviation of the list normalized by its rough magnitude (mean of |list|). ";
 
@@ -548,7 +552,7 @@ _,(*anything else*)
 
 
 ToDataset[table_List,titles_,index_:None]:=Module[{dataset},
-If[titles==="Default",
+If[titles===Null,
 	dataset=AssociationThread[First@table->#]&/@Rest[table]//Dataset;
 ,
 	dataset=AssociationThread[titles->#]&/@table//Dataset;
@@ -561,7 +565,7 @@ If[index=!=None&&IntegerQ@index,
 Return[dataset]
 ];
 
-ToDataset[table_List]:=ToDataset[table,"Default",None];
+ToDataset[table_List]:=ToDataset[table,Null,None];
 
 
 (* ::Text:: *)
@@ -819,21 +823,28 @@ DetectResolution[list_Dataset,takeSize_:200]:=DetectResolution[list//FromDataset
 (*Import multiple files*)
 
 
-MultiImport[files_List]:=Module[{output},
-output=Import[#]&/@files;
-output=Flatten[output,1];
+MultiImport[files_List,format_:Null,opt:OptionsPattern[]]:=Module[{output,title},
+If[format===Null,
+	output=Import[#]&/@files;
+,
+	output=Import[#,format]&/@files
+];
+title=FirstCase[First@output,{__String}]/._Missing->Null;
+
+If[OptionValue@"CleanHeader",
+	output=Flatten[Rest/@output,1];
+,
+	output=Flatten[output,1];
+];
+
+If[OptionValue@"ToDataset",
+	output=ToDataset[output,title]
+];
 
 Return[output]
 ];
 
-MultiImport[files_List,format_]:=Module[{output},
-output=Import[#,format]&/@files;
-output=Flatten[output,1];
-
-Return[output]
-];
-
-MultiImport[folder_String,pattern_:"*"]:=MultiImport@FileNames[pattern,{folder}];
+MultiImport[folder_String,pattern_:"*",format_:Null,opt:OptionsPattern[]]:=MultiImport[FileNames[pattern,{folder}],format,opt];
 
 
 (* ::Subsection::Closed:: *)
@@ -1079,7 +1090,8 @@ pyExpConstructor[var_]:=Null;
 (*SQL*)
 
 
-InsertToSQL[dataset_Dataset/;ArrayDepth@dataset==1,table_String,connection_,start_:0,step_:5000]:=Module[{length=Length@dataset,indList,columns=dataset//DatasetColumns,data=dataset//FromDataset},
+InsertToSQL[dataset_Dataset/;ArrayDepth@dataset==1,table_String,connection_,start_:0,step_:5000]:=Module[
+{length=Length@dataset,indList,columns=dataset//DatasetColumns,data=dataset//FromDataset},
 
 indList=Range[start,length,step];
 
@@ -1095,7 +1107,8 @@ ProgressIndicator[i,{start,Last@indList}]]
 InsertToSQL[table_String,connection_,start_:0,step_:5000][dataset_Dataset/;ArrayDepth@dataset==1]:=InsertToSQL[dataset,table,connection,start,step];
 
 
-ToSQL[datasetIn_Dataset/;ArrayDepth@datasetIn==1,table_String,connection_,ifExist_:"Replace"]:=Module[{dataset,columns,sampled,heads,flagColumn,sqlColumns,columnTypeMapping},
+ToSQL[datasetIn_Dataset/;ArrayDepth@datasetIn==1,table_String,connection_,ifExist_:"Replace"]:=Module[
+{dataset,columns,sampled,heads,flagColumn,sqlColumns,columnTypeMapping},
 
 dataset=datasetIn/.{_Missing->-9999,True->1,False->0};
 
@@ -2133,7 +2146,7 @@ Unevaluated@Sequence[]
 ]
 ]
 CombinePlots::invGr="Will ignore invalid expression `` (expected graphics or legended graphics expression).";
-
+Options[CombinePlots]={"AxesSides"->Automatic,"CombineProlog"->True,"CombineEpilog"->True,"AnnotationPattern"->(GraphicsGroup|Text)[___]};
 CombinePlots[plots__,Longest[opts:OptionsPattern[]]]:=
 With[
 {
@@ -2305,7 +2318,7 @@ Return[Re@dayLength];
 ];
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Night time data removal*)
 
 
@@ -2441,18 +2454,13 @@ Length@irrCol==1,
 	irrCol=First@irrCol;
 ];
 
-If[MemberQ[cols,irrCol<>"_D_D"],
-	sod=data[All,{timeColName,irrCol,irrCol<>"_D_D"}]//FromDataset;
-, (* else *)
-
-	(* second order differencing, returning table with columns Timestamp, G, G_D, Timestamp_D, G_D_D *)
-	sod=CalcFirstOrderDiff[
-			CalcFirstOrderDiff[data[All,{timeColName,irrCol}],{irrCol,timeColName}]//Select[#[timeColName<>"_D"]==deltas&]
-		,{irrCol<>"_D"}];
+(* second order differencing, returning table with columns Timestamp, G, G_D, Timestamp_D, G_D_D *)
+sod=CalcFirstOrderDiff[
+		CalcFirstOrderDiff[data[All,{timeColName,irrCol}],{irrCol,timeColName}]//Select[#[timeColName<>"_D"]==deltas&]
+	,{irrCol<>"_D"}];
 	
-	(* keep only Timestamp, G, G_D_D, G_D *)
-	sod=sod[All,{timeColName,irrCol,irrCol<>"_D_D",irrCol<>"_D"}]//FromDataset;
-];
+(* keep only Timestamp, G, G_D_D, G_D *)
+sod=sod[All,{timeColName,irrCol,irrCol<>"_D_D",irrCol<>"_D"}]//FromDataset;
 
 (* select stable period if second order difference is less than threshold for consecutive times > length *)
 stablePeriod=Flatten[
@@ -2468,6 +2476,7 @@ Return@
 SortBy[First]@
 MergeData[
 	{data,ToDataset[nonStablePeriod~Join~AppendColumn[stablePeriod,1],{timeColName,irrCol,irrCol<>"_D_D","is_stable"}]}
+	,keyCollisionFunction->Right
 ];
 
 ];
