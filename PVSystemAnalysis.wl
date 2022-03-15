@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*General functions*)
 
 
@@ -57,7 +57,7 @@ ToDataset[table] or ToDataset[table,\"Default\",index] assumes first row contain
 When table does not contain column names, the title row can be supplied as the second argument. 
 Index can be specified, in which case should be given as an integer indicating which column is used as index.";
 
-FromDataset::usage = "FromDataset[dataset,showHeader:False] convert a dataset to a table.";
+FromDataset::usage = "FromDataset[dataset,showHeader(False),indexName(index)] convert a dataset to a table. indexName indicates name of index for dataset with indices";
 
 AddIndex::usage = "AddIndex[dataset,index:0,drop_:True] adds index to a flat dataset by converting the n^th column specified by 'index' (0 means natural indexing). Note that duplicate values will be overwritten if any column is used as index. ";
 
@@ -282,7 +282,7 @@ AppearanceFunction::usage="AppearanceFunction is an option for PlotExplorer that
 MenuPosition::usage="MenuPosition is an option for PlotExplorer that specifies the position of the (upper right corner of the) menu button within the graphics object.";
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Solar related*)
 
 
@@ -465,7 +465,7 @@ Tkelvin=273.15;
 (*General functions*)
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*General*)
 
 
@@ -572,20 +572,24 @@ ToDataset[table_List]:=ToDataset[table,Null,None];
 (*Convert back to a table with or without column names. *)
 
 
-FromDataset[dataset_Dataset,showHeader_:False]:=Module[{dim=Dimensions@dataset,d},
+FromDataset[dataset_Dataset,showHeader_:False,indexName_:"index"]:=Module[{dim=Dimensions@dataset,rowCount},
 
 If[dim==={0}, Return@{}; Abort[]];
-If[Length@dim==1, d=First@dim;, d=dim[[2]];];
+If[Length@dim==1, rowCount=First@dim;, rowCount=dim[[2]];];
 
-Which[ArrayDepth@dataset==1 && d!=1,
+Which[ArrayDepth@dataset==1 && rowCount!=1,
 		If[showHeader,Prepend[Normal@Values@dataset,Normal@Keys@First@dataset],Normal@Values@dataset],
-	ArrayDepth@dataset==1 && d==1,
+	ArrayDepth@dataset==1 && rowCount==1,
 		If[showHeader,Flatten[Prepend[Normal@Values@dataset,Normal@Keys@First@dataset],1],Flatten[Normal@Values@dataset,1]],
-	ArrayDepth@dataset==2 && d!=1, (* else, array depth is 2 *)
-		If[showHeader,Prepend[KeyValueMap[List/*Flatten,Values/@Normal@dataset],Prepend[Normal@Keys@First@dataset,"index"]],KeyValueMap[List/*Flatten,Values/@Normal@dataset]]
+	ArrayDepth@dataset==2 && rowCount!=1, (* else, array depth is 2 *)
+		If[showHeader,Prepend[KeyValueMap[List/*Flatten,Values/@Normal@dataset],Prepend[Normal@Keys@First@dataset,indexName]],KeyValueMap[List/*Flatten,Values/@Normal@dataset]],
+	ArrayDepth@dataset==2 && rowCount==1,
+		If[showHeader,Prepend[KeyValueMap[List/*Flatten,Values/@Normal@dataset],Prepend[Normal@Keys@First@dataset,indexName]],KeyValueMap[List/*Flatten,Values/@Normal@dataset]]
 ]
 
 ];
+
+FromDataset[True,indexName_:"index"]:=FromDataset[#,True,indexName]&
 
 
 (* ::Text:: *)
@@ -706,7 +710,7 @@ GroupbyDay=GroupBy[DateString[First@#,"ISODate"]&];
 LookupIndex[list_]:=AssociationThread[list->Range[Length[list]]];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Time related*)
 
 
@@ -815,7 +819,7 @@ First@Commonest@deltas
 DetectResolution[list_Dataset,takeSize_:200]:=DetectResolution[list//FromDataset,takeSize];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Data import and manipulation*)
 
 
@@ -1527,7 +1531,7 @@ Return[output]
 DistributionMode[list_List]:=ArgMax[PDF[SmoothKernelDistribution[list],x],x];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Plotting related*)
 
 
@@ -2297,7 +2301,7 @@ range=(mid+(1-f) (pt1-mid))+f/2 {-len,len}\[Transpose](*Zofom on `pt1`*)])},Pass
 If[CurrentValue@"ControlKey",ratio=Divide@@Reverse@#])&],AppearanceElements->"ResizeArea",ImageMargins->0,FrameMargins->0]]]];
 
 
-(* ::Chapter:: *)
+(* ::Chapter::Closed:: *)
 (*Solar geometry and meteorological*)
 
 
@@ -2318,7 +2322,7 @@ Return[Re@dayLength];
 ];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Night time data removal*)
 
 
@@ -2487,11 +2491,11 @@ StablePeriodDetect[data//Prepend[{"Timestamp","G"}~Join~Table["column_"<>ToStrin
 ];
 
 
-(* ::Chapter:: *)
+(* ::Chapter::Closed:: *)
 (*PV system related calculations*)
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Misc KPIs & General*)
 
 
@@ -2745,7 +2749,7 @@ Return[faultData]
 ];
 
 
-(* ::Chapter:: *)
+(* ::Chapter::Closed:: *)
 (*Analytical monitoring*)
 
 
