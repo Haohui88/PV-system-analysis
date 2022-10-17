@@ -263,9 +263,7 @@ PyPlot::usage = "PyPlot[session_,var_Dataset,plotType_:\"line\"] does x-y plot u
 
 Options[CombinePlots]={"AxesSides"->Automatic,"CombineProlog"->True,"CombineEpilog"->True,"AnnotationPattern"->(GraphicsGroup|Text)[___]};
 
-CombinePlots::usage = "CombinePlots[\!\(\*SubscriptBox[
-StyleBox[\"g\", \"TI\"], \(1\)]\),\!\(\*SubscriptBox[
-StyleBox[\"g\", \"TI\"], \(2\)]\),\[Ellipsis]] works like Show, but can reorder labels/callouts and reposition frame axes. See resource in Wolfram Function Repository";
+CombinePlots::usage = "CombinePlots works like Show, but can reorder labels/callouts and reposition frame axes. Example: Two axes plot - CombinePlots[plot1, plot2, \"AxesSides\"\[Rule]\"TwoY\"]. ";
 
 
 ExploreGraphics::usage="Pass a Graphics object to explore it by zooming and panning with left and right mouse buttons respectively. Left click once to reset view.";
@@ -449,7 +447,7 @@ Begin["`Private`"];
 Needs["DatabaseLink`"];
 
 
-(* ::Chapter::Closed:: *)
+(* ::Chapter:: *)
 (*Constants*)
 
 
@@ -1531,7 +1529,7 @@ Return[output]
 DistributionMode[list_List]:=ArgMax[PDF[SmoothKernelDistribution[list],x],x];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Plotting related*)
 
 
@@ -2491,11 +2489,11 @@ StablePeriodDetect[data//Prepend[{"Timestamp","G"}~Join~Table["column_"<>ToStrin
 ];
 
 
-(* ::Chapter::Closed:: *)
+(* ::Chapter:: *)
 (*PV system related calculations*)
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Misc KPIs & General*)
 
 
@@ -2554,9 +2552,9 @@ Append[#,PRcorrW[#[[powerCol]],ratedPower,#[[irrCol]],#[[sTCol]],sTC,avgT]]&/@ta
 (* ::Text:: *)
 (*VoltageRatio returns a ratio to expected Voc under a certain operating condition. *)
 (*Dependence of Voc on irradiance is based on the following equation (assuming a simple one-diode model): *)
-(*Voc = (n Ns kT) / (q ln(Isc/I0)) *)
-(*= (n Ns kT) / (q ln(Isc,stc / I0 * G/1000)) *)
-(*=  Voc,T + (n Ns kT) / (q ln(G/1000))*)
+(*Voc = (n Ns kT) / q * ln(Isc/I0)*)
+(*= (n Ns kT) / q * ln(Isc,stc / I0 * G/1000)*)
+(*=  Voc,T + (n Ns kT) / q * ln(G/1000)*)
 (*Ns is number of cells (not modules) in series in a string, which is important to specify in order to correctly estimate irradiance dependence. *)
 (*n is the ideality factor in the diode model of the solar cell. *)
 (*Temperature coefficient is for Voc. *)
