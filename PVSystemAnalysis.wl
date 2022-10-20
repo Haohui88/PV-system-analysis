@@ -2179,12 +2179,12 @@ plt.show()"]
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Interactive exploration*)
 
 
 FigureAlbum[figures_List]:=With[{lables=Table[First@Values@AbsoluteOptions[figures[[j]],PlotLabel]/.None->j,{j,Length@figures}]},
-	Manipulate[AssociationThread[lables->figures][i],{i,lables}]
+	Manipulate[AssociationThread[lables->figures][i],{i,If[!AtomQ@lables,First@lables,lables]}]
 ];
 
 
@@ -2545,7 +2545,7 @@ CalcPRcorrW[table_List/;ArrayDepth@table==2,powerCol_Integer/;powerCol>0,ratedPo
 Append[#,PRcorrW[#[[powerCol]],ratedPower,#[[irrCol]],#[[sTCol]],sTC,avgT]]&/@table;
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Current & voltage*)
 
 
