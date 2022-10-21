@@ -2179,12 +2179,13 @@ plt.show()"]
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Interactive exploration*)
 
 
-FigureAlbum[figures_List]:=With[{lables=Table[First@Values@AbsoluteOptions[figures[[j]],PlotLabel]/.None->j,{j,Length@figures}]},
-	Manipulate[AssociationThread[lables->figures][i],{i,If[!AtomQ@lables,First@lables,lables]}]
+FigureAlbum[figures_List]:=Module[{lablesRaw=Table[First@Values@AbsoluteOptions[figures[[j]],PlotLabel]/.None->j,{j,Length@figures}],lables},
+	lables=If[!AtomQ@#,First@#,#]&/@lablesRaw;
+	TabView[AssociationThread[lables->figures]]
 ];
 
 
