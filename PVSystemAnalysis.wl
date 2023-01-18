@@ -25,7 +25,7 @@
 BeginPackage["PVSystemAnalysis`"];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*General functions*)
 
 
@@ -108,7 +108,7 @@ Option such as Timezone can be specified (note that this only changed the form a
 FromTemporalData::usage = "Quick conversion from a temporal data object to extract paths.";
 
 RegularizeTimeSeries::usage = "RegularizeTimeSeries[data, resampleMethod:Automatic, timesteps:Automatic] makes the timestamp spacing uniform by filling in missing timestamps.
-Assumes data is regular shaped table. Timestamps must be DateObject. 
+Assumes data is regular shaped table WITHOUT strings in value columns. Timestamps must be DateObject or strings in usual date format. 
 Resample method specification can be any of the forms accepted by TimeSeriesResample (default is linear interpolation, use None instead to fill in Missing). ";
 
 DetectResolution::usage = "DetectResolution[list,takeSize_:200] returns the prominent spacing between elements in the list by taking the first takeSize elements. \
@@ -708,7 +708,7 @@ GroupbyDay=GroupBy[DateString[First@#,"ISODate"]&];
 LookupIndex[list_]:=AssociationThread[list->Range[Length[list]]];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Time related*)
 
 
@@ -773,7 +773,7 @@ ts["PathCount"]==1,
 ];
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Regularize timestamp spacing*)
 
 
@@ -796,6 +796,9 @@ Return@
 ToDataset[FromTemporalData@TimeSeriesResample[ts,timesteps,ResamplingMethod->resampleMethod],headings];
 
 ];
+
+
+RegularizeTimeSeries[data:{{_String,__}..},resampleMethod_:Automatic,timesteps_:Automatic]:=RegularizeTimeSeries[ConvertDateObject@data,resampleMethod,timesteps];
 
 
 DetectResolution[list:{__},takeSize_:200]:=Module[{deltas,resolution},
@@ -2748,11 +2751,11 @@ Return[faultData]
 ];
 
 
-(* ::Chapter::Closed:: *)
+(* ::Chapter:: *)
 (*Analytical monitoring*)
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Time series inspection*)
 
 
@@ -3057,8 +3060,19 @@ groupData=GroupBy[data,DateString[#[[timestampPos]],groupBy]&];
 AppendTo[self,"bins"->Keys@groupData];
 AppendTo[self,"columns"->columnNames];
 AppendTo[self,"data":>(groupData[#1]&)];
-AppendTo[self,"plot":>(DateListPlot[groupData[#1][[All,{timestampPos,index@#2}]],FrameLabel->{None,Style[#2,Bold]},opt,ImageSize->Medium,GridLines->Automatic]&)];
-(*AppendTo[self,"album"\[RuleDelayed]Manipulate[self["plot"][bins,column],{bins,self["bins"]},{column,Drop[self["columns"],{timestampPos}]}]];*)
+AppendTo[self,"plot":>(
+	DateListPlot[
+		If[Head@#2===List,
+			Table[groupData[#1][[All,{timestampPos,colIndex}]],{colIndex,index/@#2}]
+		, (* else *)
+			groupData[#1][[All,{timestampPos,index@#2}]]],
+		If[Head@#2===List,
+			PlotLegends->Placed[#2,Below]
+		, (* else *)
+			FrameLabel->{None,Style[#2,Bold]}
+		],ImageSize->Medium,GridLines->Automatic,opt]&
+		)];
+
 AppendTo[self,"album":>
 	With[{func=self["plot"],bin=self["bins"],col=Drop[self["columns"],{timestampPos}]},
 		Manipulate[
@@ -3085,6 +3099,13 @@ AppendTo[self,"album_extendable":>
 	With[{func=self["plot"],bin=self["bins"],col=Drop[self["columns"],{timestampPos}],albumNum=self["album_number"]},
 		cols[albumNum]={};
 		makeAlbum[func,col,bin,albumNum]
+	]
+];
+
+AppendTo[self,"album_overlay":>
+	With[{func=self["plot"],bin=self["bins"],col=Drop[self["columns"],{timestampPos}],albumNum=self["album_number"]},
+		cols2[albumNum]={};
+		makeAlbumOverlay[func,col,bin,albumNum]
 	]
 ];
 
@@ -3134,9 +3155,25 @@ Column[{
 		{{bins,First@bin,"bins"},bin},
 		Row@{Button["previous bin",bins=bin[[With[{p=Position[bin,bins][[1,1]]},Max[p-1,1]]]]],Button["next bin",bins=bin[[Min[Position[bin,bins][[1,1]]+1,Length@bin]]]]}
 	]
-	}]
+	}];
 
-
+makeAlbumOverlay[func_,col_,bin_,albumNum_]:=
+Column[{
+	TogglerBar[Dynamic[cols2[albumNum]],col,Appearance->"Row"],
+	Button["clear selection",cols2[albumNum]={}],
+	Manipulate[
+		With[{plot=func[bins,If[Head@cols2[albumNum]=!=List||cols2[albumNum]==={},{First@col},cols2[albumNum]]]},
+			Column@{
+				Button["save plot",
+					Export[ToString@bins<>".png",plot]
+				],
+				plot
+			}
+		],
+		{{bins,First@bin,"bins"},bin},
+		Row@{Button["previous bin",bins=bin[[With[{p=Position[bin,bins][[1,1]]},Max[p-1,1]]]]],Button["next bin",bins=bin[[Min[Position[bin,bins][[1,1]]+1,Length@bin]]]]}
+	]
+	}];
 
 
 (* ::Section::Closed:: *)
